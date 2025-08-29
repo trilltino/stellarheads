@@ -10,26 +10,41 @@ server = []
 gui = []
 
 [dependencies]
-bevy = "0.16.1"
+# Strip Bevy down to essentials only
+bevy = { version = "0.16.1", default-features = false, features = [
+    "bevy_winit", "bevy_render", "bevy_core_pipeline", "bevy_sprite", 
+    "bevy_asset", "png", "multi_threaded"
+] }
+
+# Keep your networking as-is
 lightyear = { version = "0.23.0", features = [
-    "interpolation",
-    "prediction", 
-    "replication",
-    "leafwing",
-    "deterministic",
+    "interpolation", "prediction", "replication", "leafwing", "deterministic"
 ] }
-avian2d = { version = "0.3.1", features = [
-    "2d",
-    "f32", 
-    "parry-f32",
-    "parallel",
-    "serialize",
-    "enhanced-determinism",
+
+# Strip physics features for dev
+avian2d = { version = "0.3.1", default-features = false, features = [
+    "2d", "f32", "parry-f32", "parallel"
 ] }
-leafwing-input-manager = "0.16.0"
+
+leafwing-input-manager = { version = "0.16.0", default-features = false }
 lightyear_avian2d = { version = "0.23.0", features = ["deterministic", "2d"] }
-serde = { version = "1.0", features = ["derive"] }
-
-clap = { version = "4.0", features = ["derive"] }
-
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+clap = { version = "4.0", default-features = false, features = ["derive","std"] }
 cfg-if = "1.0"
+
+# Fast dev builds
+[profile.dev]
+opt-level = 1
+debug = true
+incremental = true
+
+# Optimize deps, not your code
+[profile.dev.package."*"]
+opt-level = 3
+debug = false
+
+# Super fast iteration profile  
+[profile.dev-fast]
+inherits = "dev"
+opt-level = 0
+debug = false

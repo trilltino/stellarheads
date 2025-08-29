@@ -6,8 +6,7 @@ pub struct Ball;
 
 #[derive(Bundle)]
 pub struct BallBundle {
-    mesh: Mesh2d,
-    material: MeshMaterial2d<ColorMaterial>,
+    sprite: Sprite,
     transform: Transform,
     rigid_body: RigidBody,
     collider: Collider,
@@ -15,43 +14,38 @@ pub struct BallBundle {
     restitution: Restitution,
     friction: Friction,
     mass: Mass,
+    gravity_scale: GravityScale,
+    velocity: LinearVelocity,
     ball: Ball,
 }
 
 impl BallBundle {
-    pub fn new(
-        meshes: &mut ResMut<Assets<Mesh>>,
-        materials: &mut ResMut<Assets<ColorMaterial>>,
-        radius: f32,
-        color: Color,
-        position: Vec3,
-    ) -> Self {
+    pub fn new(radius: f32, color: Color, position: Vec3) -> Self {
         Self {
-            mesh: meshes.add(Circle::new(radius)).into(),
-            material: materials.add(color).into(),
+            sprite: Sprite {
+                color,
+                custom_size: Some(Vec2::new(radius * 2.0, radius * 2.0)),
+                ..default()
+            },
             transform: Transform::from_translation(position),
             rigid_body: RigidBody::Dynamic,
             collider: Collider::circle(radius),
-            restitution: Restitution::new(0.8),
-            friction: Friction::new(0.0),
-            mass: Mass(10.0),
+            restitution: Restitution::new(0.8), // Bouncy ball
+            friction: Friction::new(0.1),       // Low friction for rolling
+            mass: Mass(1.0),                    // Lighter for more realistic physics
+            gravity_scale: GravityScale(1.0),   // Normal gravity
+            velocity: LinearVelocity::ZERO,
+            collider_density: ColliderDensity(1.0), // More realistic density
             ball: Ball,
-            collider_density: ColliderDensity(11.3),
         }
     }
 }
 
-pub fn spawn_ball(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
+pub fn spawn_ball(mut commands: Commands) {
     commands.spawn(BallBundle::new(
-        &mut meshes,
-        &mut materials,
         25.0,
         Color::srgb(1.0, 0.0, 0.0),
-        Vec3::new(0.0, 100.0, 0.0),
+        Vec3::new(0.0, 200.0, 0.0), // Start higher up
     ));
 }
 
@@ -62,3 +56,4 @@ impl Plugin for BallPlugin {
         app.add_systems(Startup, spawn_ball);
     }
 }
+
