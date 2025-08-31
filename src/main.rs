@@ -5,7 +5,7 @@ use bevy::prelude::*;
 mod shared;
 use crate::shared::player::PlayerPlugin;
 use lightyear::prelude::*;
-use shared::BallPlugin;
+use shared::{BallPlugin, GoalPlugin, StateUIPlugin};
 
 pub const FIXED_TIMESTEP_HZ: f64 = 60.0;
 
@@ -15,6 +15,7 @@ fn main() {
         .add_plugins((DefaultPlugins, PhysicsPlugins::default()))
         .add_plugins(BallPlugin)
         .add_plugins(PlayerPlugin)
+        .add_plugins(GoalPlugin)
         .add_systems(Startup, setup)
         .add_plugins(client::ClientPlugins {
             tick_duration: Duration::from_secs_f64(1.0 / FIXED_TIMESTEP_HZ),

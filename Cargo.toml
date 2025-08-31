@@ -26,6 +26,7 @@ avian2d = { version = "0.3.1", default-features = false, features = [
     "2d", "f32", "parry-f32", "parallel"
 ] }
 
+bevy_egui = "0.36.0"
 leafwing-input-manager = { version = "0.16.0", default-features = false }
 lightyear_avian2d = { version = "0.23.0", features = ["deterministic", "2d"] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
