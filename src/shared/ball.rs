@@ -30,12 +30,12 @@ impl BallBundle {
             transform: Transform::from_translation(position),
             rigid_body: RigidBody::Dynamic,
             collider: Collider::circle(radius),
-            restitution: Restitution::new(0.8), // Bouncy ball
-            friction: Friction::new(0.1),       // Low friction for rolling
-            mass: Mass(1.0),                    // Lighter for more realistic physics
-            gravity_scale: GravityScale(1.0),   // Normal gravity
+            restitution: Restitution::new(0.8),
+            friction: Friction::new(0.1),
+            mass: Mass(1.0),
+            gravity_scale: GravityScale(1.0),
             velocity: LinearVelocity::ZERO,
-            collider_density: ColliderDensity(1.0), // More realistic density
+            collider_density: ColliderDensity(1.0),
             ball: Ball,
         }
     }
@@ -56,4 +56,3 @@ impl Plugin for BallPlugin {
         app.add_systems(Startup, spawn_ball);
     }
 }
-

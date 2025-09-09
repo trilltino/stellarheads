@@ -60,7 +60,6 @@ fn setup_goal(
         y: -350.0,
     };
 
-    // Spawn ground
     commands.spawn((
         Sprite::from_color(
             Color::srgb(0.3, 0.3, 0.3),
@@ -71,7 +70,6 @@ fn setup_goal(
         Collider::rectangle(ground.width, ground.height),
     ));
 
-    // Spawn multiple goals at different positions relative to ground
     let goal_radius = 20.0;
     let goal_positions = [
         Vec3::new(-525.0, ground.top() + goal_radius, 0.0),

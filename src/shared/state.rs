@@ -1,4 +1,4 @@
-use bevy::{dev_tools::states::*, prelude::*};
+use bevy::prelude::*;
 
 #[derive(Clone, Copy, Resource, PartialEq, Eq, Hash, Debug, Default, States)]
 pub enum AppState {
@@ -10,7 +10,7 @@ pub enum AppState {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-enum GameUI {
+pub enum GameUI {
     MainMenuUI,
     GameHUD,
     PausedMenuUI,
@@ -20,12 +20,13 @@ enum GameUI {
 impl ComputedStates for GameUI {
     type SourceStates = AppState;
 
-    fn compute(game_state: AppState) -> Option<Self> {
-        match game_state {
+    fn compute(source_states: Self::SourceStates) -> Option<Self> {
+        match source_states {
             AppState::LaunchMenu => Some(GameUI::MainMenuUI),
             AppState::InGame => Some(GameUI::GameHUD),
-            AppState::Paused => Some(GameUI::PauseMenuUI),
+            AppState::Paused => Some(GameUI::PausedMenuUI),
             AppState::GameOver => Some(GameUI::ResultUI),
         }
     }
 }
+
