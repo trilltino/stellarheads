@@ -1,5 +1,4 @@
 use crate::shared::state::AppState;
-use bevy::ecs::query::QuerySingleError;
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts, EguiPrimaryContextPass};
 
@@ -8,7 +7,6 @@ pub fn launchui_system(
     mut next_state: ResMut<NextState<AppState>>,
     current_state: Res<State<AppState>>,
 ) -> Result {
-    // Early return if not in LaunchMenu state
     if !matches!(current_state.get(), AppState::LaunchMenu) {
         return Ok(());
     }
@@ -33,10 +31,7 @@ pub fn debug_current_gamemode_state(state: Res<State<AppState>>) {
 pub struct StateUIPlugin;
 impl Plugin for StateUIPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            EguiPrimaryContextPass,
-            launchui_system, // No run_if here
-        );
+        app.add_systems(EguiPrimaryContextPass, launchui_system);
         app.add_systems(Update, debug_current_gamemode_state);
     }
 }
