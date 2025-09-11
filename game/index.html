@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>🌟 Stellar Heads Game</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #0d1117 0%, #1a1a2e 50%, #16213e 100%);
+            color: white;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            overflow: hidden;
+        }
+        
+        #stellar-heads-canvas {
+            display: block;
+            margin: 0 auto;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            background: #1a1a2e;
+            max-width: 100vw;
+            max-height: 100vh;
+        }
+        
+        .game-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+        
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 1000;
+            background: rgba(26, 26, 46, 0.9);
+            padding: 2rem;
+            border-radius: 12px;
+            border: 1px solid #667eea;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-wrapper">
+        <div class="loading" id="loading-screen">
+            <div class="spinner"></div>
+            <h2>🌟 Loading Stellar Heads</h2>
+            <p>Initializing WASM game engine...</p>
+        </div>
+    </div>
+    
+    <link data-trunk rel="rust" data-bin="stellar_heads" data-wasm-opt="z"/>
+    
+    <script>
+        window.addEventListener("load", () => {
+            setTimeout(() => {
+                const loading = document.getElementById("loading-screen");
+                if (loading) {
+                    loading.style.opacity = "0";
+                    setTimeout(() => loading.remove(), 500);
+                }
+            }, 2000);
+        });
+    </script>
+</body>
+</html>

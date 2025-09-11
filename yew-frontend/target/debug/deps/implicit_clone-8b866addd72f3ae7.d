@@ -1,0 +1,10 @@
+C:\Users\isich\stellar_heads\yew-frontend\target\debug\deps\implicit_clone-8b866addd72f3ae7.d: C:\Users\isich\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\implicit-clone-0.4.9\src\lib.rs C:\Users\isich\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\implicit-clone-0.4.9\src\sync.rs C:\Users\isich\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\implicit-clone-0.4.9\src\array.rs C:\Users\isich\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\implicit-clone-0.4.9\src\map.rs C:\Users\isich\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\implicit-clone-0.4.9\src\string.rs C:\Users\isich\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\implicit-clone-0.4.9\src\unsync.rs
+
+C:\Users\isich\stellar_heads\yew-frontend\target\debug\deps\libimplicit_clone-8b866addd72f3ae7.rmeta: C:\Users\isich\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\implicit-clone-0.4.9\src\lib.rs C:\Users\isich\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\implicit-clone-0.4.9\src\sync.rs C:\Users\isich\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\implicit-clone-0.4.9\src\array.rs C:\Users\isich\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\implicit-clone-0.4.9\src\map.rs C:\Users\isich\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\implicit-clone-0.4.9\src\string.rs C:\Users\isich\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\implicit-clone-0.4.9\src\unsync.rs
+
+C:\Users\isich\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\implicit-clone-0.4.9\src\lib.rs:
+C:\Users\isich\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\implicit-clone-0.4.9\src\sync.rs:
+C:\Users\isich\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\implicit-clone-0.4.9\src\array.rs:
+C:\Users\isich\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\implicit-clone-0.4.9\src\map.rs:
+C:\Users\isich\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\implicit-clone-0.4.9\src\string.rs:
+C:\Users\isich\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\implicit-clone-0.4.9\src\unsync.rs:

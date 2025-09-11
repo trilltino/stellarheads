@@ -1,41 +1,6 @@
-[package]
-name = "stellar_heads"
-version = "0.1.0"
-edition = "2021"
-
-[features]
-default = ["client", "server", "gui"]
-client = []
-server = []
-gui = []
-
-[dependencies]
-# Strip Bevy down to essentials only
-bevy = { version = "0.16.1", default-features = false, features = [ 
-  "bevy_dev_tools", "bevy_state",
-    "bevy_winit", "bevy_render", "bevy_core_pipeline", "bevy_sprite", 
-    "bevy_asset", "png", "multi_threaded"
-] }
-
-# Keep your networking as-is
-lightyear = { version = "0.23.0", features = [
-    "interpolation", "prediction", "replication", "leafwing", "deterministic"
-] }
-
-# Strip physics features for dev
-avian2d = { version = "0.3.1", default-features = false, features = [
-    "2d", "f32", "parry-f32", "parallel"
-] }
-
-bevy_egui = "0.36.0"
-leafwing-input-manager = { version = "0.16.0", default-features = false }
-lightyear_avian2d = { version = "0.23.0", features = ["deterministic", "2d"] }
-serde = { version = "1.0", default-features = false, features = ["derive"] }
-clap = { version = "4.0", default-features = false, features = ["derive","std"] }
-cfg-if = "1.0"
-
-[dependencies.web-sys]
-version = "0.3.78"
+[workspace]
+members = ["game", "yew-frontend"]
+resolver = "2"
 
 # Fast dev builds
 [profile.dev]
@@ -53,3 +18,4 @@ debug = false
 inherits = "dev"
 opt-level = 0
 debug = false
+

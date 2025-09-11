@@ -1,0 +1,74 @@
+[package]
+name = "stellar_heads_game"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "stellar_heads"
+path = "src/main.rs"
+
+[lib]
+name = "stellar_heads_game"
+crate-type = ["cdylib"]
+
+[features]
+default = ["client", "server", "gui"]
+client = []
+server = []
+gui = []
+
+[dependencies]
+# Strip Bevy down to essentials only
+bevy = { version = "0.16.1", default-features = false, features = [ 
+    "bevy_dev_tools", "bevy_state",
+    "bevy_winit", "bevy_render", "bevy_core_pipeline", "bevy_sprite", 
+    "bevy_asset", "png", "webgl2"
+] }
+
+# Keep your networking as-is
+lightyear = { version = "0.23.0", features = [
+    "interpolation", "prediction", "replication", "leafwing", "deterministic"
+] }
+
+# Strip physics features for dev
+avian2d = { version = "0.3.1", default-features = false, features = [
+    "2d", "f32", "parry-f32", "parallel"
+] }
+
+bevy_egui = "0.36.0"
+leafwing-input-manager = { version = "0.16.0", default-features = false }
+lightyear_avian2d = { version = "0.23.0", features = ["deterministic", "2d"] }
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+clap = { version = "4.0", default-features = false, features = ["derive","std"] }
+cfg-if = "1.0"
+bevy-inspector-egui = "0.33.1"
+bevy_window = "0.16.1"
+egui = "0.32.2"
+wasm-bindgen = "0.2"
+getrandom = { version = "0.3", features = ["wasm_js"] }
+console_error_panic_hook = "0.1.6"
+bevy_kira_audio = "0.23.0"
+
+[dependencies.web-sys]
+version = "0.3.78"
+features = [
+  "console",
+]
+
+
+# Fast dev builds
+[profile.dev]
+opt-level = 1
+debug = true
+incremental = true
+
+# Optimize deps, not your code
+[profile.dev.package."*"]
+opt-level = 3
+debug = false
+
+# Super fast iteration profile  
+[profile.dev-fast]
+inherits = "dev"
+opt-level = 0
+debug = false
