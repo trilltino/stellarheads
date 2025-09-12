@@ -4,6 +4,7 @@ use bevy_egui::EguiPlugin;
 use bevy::core_pipeline::bloom::Bloom;
 mod egui_inspectorui;
 mod shared;
+mod server;
 use egui_inspectorui::EguiInspector;
 use shared::ball::{Ball, BallPlugin};
 use shared::collision::CollisionPlugin;

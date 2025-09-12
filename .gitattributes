@@ -1,0 +1,6 @@
+# Ignore build artifacts
+dist/* linguist-vendored
+target/* linguist-vendored
+
+# Force Rust classification
+*.rs linguist-language=Rust

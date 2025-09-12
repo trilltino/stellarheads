@@ -63,9 +63,14 @@ impl Default for GameLobby {
 
 // ================= Server Systems =================
 
-fn setup_server() {
-    println!("🖥️ Server initialized on port 5000");
-    println!("   Ready to accept clients...");
+pub(crate) fn handle_new_client(trigger: Trigger<OnAdd, LinkOf>, mut commands: Commands) {
+    commands
+        .entity(trigger.target())
+        .insert(ReplicationSender::new(
+            SEND_INTERVAL,
+            SendUpdatesMode::SinceLastAck,
+            false,
+        ));
 }
 
 fn handle_client_connections(
@@ -75,9 +80,11 @@ fn handle_client_connections(
     // TODO: Handle client connect/disconnect when lightyear is integrated
 }
 
+
 fn handle_client_messages() {
     // TODO: Handle incoming client messages
 }
+
 
 fn update_game_logic(
     mut lobby: ResMut<GameLobby>,
@@ -112,7 +119,7 @@ fn spawn_game_entities(mut commands: Commands) {
         Name::new("Networked Ball"),
     ));
     
-    // Spawn goals
+
     commands.spawn((
         NetworkedGoal {
             team: shared::dto::user::Team::Left,
