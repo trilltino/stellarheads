@@ -3,7 +3,10 @@
     "allow": [
       "Bash(cargo check:*)",
       "Bash(rustup target list:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(cargo:*)",
+      "Bash(trunk serve:*)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ],
     "deny": [],
     "ask": []

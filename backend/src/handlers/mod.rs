@@ -1,5 +1,4 @@
 pub mod auth;
-pub mod users;
 pub mod soroban;
 
 use axum::http::StatusCode;

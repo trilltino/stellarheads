@@ -5,7 +5,6 @@
     <title>Stellar Heads</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <base href="/" />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/stellar-freighter-api/4.1.0/index.min.js"></script>
     <link data-trunk rel="rust" data-bin="yew-scaffold" data-wasm-opt="z"/>
     <style>
         * {
@@ -70,12 +69,16 @@
 </head>
 <body>
     <script type="module">
+        // Wait for Freighter extension to inject its API
         window.addEventListener('load', async () => {
-            if (window.freighterApi) {
-                console.log('✅ Freighter API loaded', Object.keys(window.freighterApi));
-            } else {
-                console.error('❌ Freighter API not loaded');
-            }
+            // Give Freighter time to inject its API
+            setTimeout(() => {
+                if (window.freighterApi) {
+                    console.log('✅ Freighter API detected', Object.keys(window.freighterApi));
+                } else {
+                    console.log('⚠️ Freighter API not detected - extension may not be installed');
+                }
+            }, 1000);
         });
     </script>
 </body>

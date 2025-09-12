@@ -1,15 +1,17 @@
 use yew::prelude::*;
 use yew_router::prelude::*;
-use web_sys::{HtmlInputElement, InputEvent, SubmitEvent};
+use web_sys::{InputEvent, SubmitEvent};
 use gloo::storage::{LocalStorage, Storage};
 use crate::routes::Route;
-use crate::freighter::{connect_wallet, is_freighter_available, FreighterError};
+use crate::freighter::connect_wallet;
+use crate::soroban::complete_join_flow;
 
 #[derive(Debug, Clone, PartialEq)]
 enum LoginStep {
     Username,
     WalletConnection,
-    Ready,
+    JoiningContract,
+    Complete,
 }
 
 #[function_component(LoginPage)]
@@ -19,7 +21,7 @@ pub fn login_page() -> Html {
     let wallet_address = use_state(|| None::<String>);
     let loading = use_state(|| false);
     let error_message = use_state(|| None::<String>);
-    let freighter_available = use_state(|| is_freighter_available());
+    let freighter_available = use_state(|| true); // Assume available, will check when user tries to connect
     let current_step = use_state(|| LoginStep::Username);
     let show_step_animation = use_state(|| false);
 
@@ -53,6 +55,7 @@ pub fn login_page() -> Html {
         let wallet_address = wallet_address.clone();
         let current_step = current_step.clone();
         let show_step_animation = show_step_animation.clone();
+        let username = username.clone();
         
         Callback::from(move |_| {
             let loading = loading.clone();
@@ -60,6 +63,7 @@ pub fn login_page() -> Html {
             let wallet_address = wallet_address.clone();
             let current_step = current_step.clone();
             let show_step_animation = show_step_animation.clone();
+            let username = username.clone();
             
             loading.set(true);
             error_message.set(None);
@@ -70,14 +74,21 @@ pub fn login_page() -> Html {
                         wallet_address.set(Some(address.clone()));
                         web_sys::console::log_1(&format!("Wallet connected: {}", address).into());
                         
-                        // Animate to ready step
+                        // Store wallet address locally
+                        let _ = LocalStorage::set("wallet_address", &address);
+                        let username_val = username.as_str().to_string();
+                        let _ = LocalStorage::set("username", &username_val);
+                        
+                        // Skip automatic contract joining - let user do it manually in GamePage
                         show_step_animation.set(true);
-                        gloo::timers::callback::Timeout::new(500, {
+                        gloo::timers::callback::Timeout::new(300, {
                             let current_step = current_step.clone();
                             let show_step_animation = show_step_animation.clone();
+                            let loading = loading.clone();
                             move || {
-                                current_step.set(LoginStep::Ready);
+                                current_step.set(LoginStep::Complete);
                                 show_step_animation.set(false);
+                                loading.set(false);
                             }
                         }).forget();
                     }
@@ -91,11 +102,13 @@ pub fn login_page() -> Html {
         })
     };
 
-    let on_enter_game = {
+    let _on_enter_game = {
         let username = username.clone();
         let wallet_address = wallet_address.clone();
         let navigator = navigator.clone();
         let loading = loading.clone();
+        let current_step = current_step.clone();
+        let error_message = error_message.clone();
         
         Callback::from(move |e: SubmitEvent| {
             e.prevent_default();
@@ -105,48 +118,42 @@ pub fn login_page() -> Html {
                 let username_val = (*username).clone();
                 let wallet_addr = wallet_address.as_ref().unwrap().clone();
                 let loading = loading.clone();
+                let current_step = current_step.clone();
+                let error_message = error_message.clone();
                 
                 loading.set(true);
                 
-                // Send to backend API first
+                // Update step to show joining contract
+                current_step.set(LoginStep::JoiningContract);
+                
+                // Join the contract
                 wasm_bindgen_futures::spawn_local(async move {
-                    let guest_data = serde_json::json!({
-                        "username": username_val,
-                        "wallet_address": wallet_addr
-                    });
-                    
-                    let client = reqwest::Client::new();
-                    match client
-                        .post("http://localhost:3000/api/guest")
-                        .header("Content-Type", "application/json")
-                        .body(guest_data.to_string())
-                        .send()
-                        .await
-                    {
-                        Ok(response) => {
-                            if response.status().is_success() {
-                                web_sys::console::log_1(&"✅ User registered successfully in database!".into());
-                                
-                                // Store locally for session management
-                                LocalStorage::set("username", &username_val).ok();
-                                LocalStorage::set("wallet_address", &wallet_addr).ok();
-                                
-                                // Navigate to game
-                                navigator.push(&Route::Game);
-                            } else {
-                                web_sys::console::log_1(&format!("❌ Backend error: {}", response.status()).into());
-                                // Still allow game access but log the error
-                                LocalStorage::set("username", &username_val).ok();
-                                LocalStorage::set("wallet_address", &wallet_addr).ok();
-                                navigator.push(&Route::Game);
-                            }
-                        },
-                        Err(e) => {
-                            web_sys::console::log_1(&format!("❌ Failed to register user: {:?}", e).into());
-                            // Still allow game access but log the error
+                    match complete_join_flow(&wallet_addr, &username_val).await {
+                        Ok(result) => {
+                            web_sys::console::log_1(&format!("✅ Successfully joined contract! Hash: {}", result.hash).into());
+                            
+                            // Store locally for session management
                             LocalStorage::set("username", &username_val).ok();
                             LocalStorage::set("wallet_address", &wallet_addr).ok();
+                            
+                            // Update to complete step and navigate to game
+                            current_step.set(LoginStep::Complete);
+                            loading.set(false);
+                            
+                            // Navigate to game after successful join
                             navigator.push(&Route::Game);
+                        },
+                        Err(e) => {
+                            web_sys::console::log_1(&format!("❌ Failed to join contract: {}", e).into());
+                            
+                            // Still store user data locally
+                            LocalStorage::set("username", &username_val).ok();
+                            LocalStorage::set("wallet_address", &wallet_addr).ok();
+                            
+                            // Show error but mark as complete (user is registered locally)
+                            error_message.set(Some(format!("Contract join failed: {}", e)));
+                            current_step.set(LoginStep::Complete);
+                            loading.set(false);
                         }
                     }
                     
@@ -164,15 +171,15 @@ pub fn login_page() -> Html {
                 <div class="header">
                     <h1 class="title">{"🌟 Stellar Heads"}</h1>
                     <div class="step-indicator">
-                        <div class={format!("step-dot {}", if *current_step == LoginStep::Username { "active" } else if matches!(*current_step, LoginStep::WalletConnection | LoginStep::Ready) { "completed" } else { "" })}>
+                        <div class={format!("step-dot {}", if *current_step == LoginStep::Username { "active" } else if matches!(*current_step, LoginStep::WalletConnection | LoginStep::Complete) { "completed" } else { "" })}>
                             <span>{"1"}</span>
                         </div>
                         <div class="step-line"></div>
-                        <div class={format!("step-dot {}", if *current_step == LoginStep::WalletConnection { "active" } else if *current_step == LoginStep::Ready { "completed" } else { "" })}>
+                        <div class={format!("step-dot {}", if *current_step == LoginStep::WalletConnection { "active" } else if *current_step == LoginStep::Complete { "completed" } else { "" })}>
                             <span>{"2"}</span>
                         </div>
                         <div class="step-line"></div>
-                        <div class={format!("step-dot {}", if *current_step == LoginStep::Ready { "active" } else { "" })}>
+                        <div class={format!("step-dot {}", if *current_step == LoginStep::Complete { "active" } else { "" })}>
                             <span>{"🚀"}</span>
                         </div>
                     </div>
@@ -276,7 +283,23 @@ pub fn login_page() -> Html {
                                     }
                                 </div>
                             },
-                            LoginStep::Ready => html! {
+                            LoginStep::JoiningContract => html! {
+                                <div class="step-panel fade-in">
+                                    <div class="loading-animation">
+                                        <div class="spinner"></div>
+                                    </div>
+                                    
+                                    <h2 class="step-title">{"Joining Contract"}</h2>
+                                    <p class="step-subtitle">{"Creating transaction and signing with Freighter..."}</p>
+                                    
+                                    <div class="progress-steps">
+                                        <div class="progress-step active">{"1. Creating transaction"}</div>
+                                        <div class="progress-step active">{"2. Signing with Freighter"}</div>
+                                        <div class="progress-step">{"3. Submitting to blockchain"}</div>
+                                    </div>
+                                </div>
+                            },
+                            LoginStep::Complete => html! {
                                 <div class="step-panel fade-in">
                                     <div class="success-animation">
                                         <div class="success-circle">
@@ -284,8 +307,8 @@ pub fn login_page() -> Html {
                                         </div>
                                     </div>
                                     
-                                    <h2 class="step-title">{"Ready for Launch!"}</h2>
-                                    <p class="step-subtitle">{format!("Welcome aboard, {}!", (*username).clone())}</p>
+                                    <h2 class="step-title">{"Welcome to Stellar Heads!"}</h2>
+                                    <p class="step-subtitle">{format!("Successfully set up, {}!", (*username).clone())}</p>
                                     
                                     <div class="wallet-info">
                                         <div class="wallet-badge">
@@ -300,12 +323,37 @@ pub fn login_page() -> Html {
                                         </div>
                                     </div>
                                     
-                                    <form onsubmit={on_enter_game}>
-                                        <button type="submit" class="launch-btn">
-                                            <span class="btn-text">{"Enter Game"}</span>
-                                            <span class="btn-rocket">{"🚀"}</span>
-                                        </button>
-                                    </form>
+                                    {
+                                        if let Some(error) = (*error_message).clone() {
+                                            html! {
+                                                <div class="error-message">
+                                                    <div class="error-icon">{"⚠️"}</div>
+                                                    <p>{error}</p>
+                                                    <small>{"You're still logged in locally"}</small>
+                                                </div>
+                                            }
+                                        } else {
+                                            html! {
+                                                <div class="success-message">
+                                                    <div class="success-icon">{"🎉"}</div>
+                                                    <p>{"Successfully connected wallet!"}</p>
+                                                    <small>{"Ready to play Stellar Heads"}</small>
+                                                </div>
+                                            }
+                                        }
+                                    }
+                                    
+                                    <button 
+                                        class="launch-btn"
+                                        onclick={{
+                                            let navigator = navigator.clone();
+                                            Callback::from(move |_| {
+                                                navigator.push(&Route::Game);
+                                            })
+                                        }}
+                                    >
+                                        <span>{"🚀 Enter Game"}</span>
+                                    </button>
                                 </div>
                             }
                         }

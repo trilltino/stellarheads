@@ -5,8 +5,7 @@ mod loginpage;
 mod gamepage;
 mod routes;
 mod soroban;
-mod game_score;
-mod contract_test;
+
 
 use routes::{Route, switch};
 use yew::prelude::*;

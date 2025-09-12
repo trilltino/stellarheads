@@ -1,5 +1,5 @@
 [workspace]
-members = ["game", "yew-frontend"]
+members = ["game", "yew-frontend", "shared", "backend"] 
 resolver = "2"
 
 # Fast dev builds

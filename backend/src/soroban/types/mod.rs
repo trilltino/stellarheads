@@ -1,31 +1,6 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GameScore {
-    pub player_address: String,
-    pub username: String,
-    pub score: u64,
-    pub game_mode: String,
-    pub duration: u64, // in seconds
-    pub achievements: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LeaderboardRequest {
-    pub player_address: String,
-    pub score: GameScore,
-    pub signature_required: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContractCallRequest {
-    pub contract_address: String,
-    pub function_name: String,
-    pub parameters: serde_json::Value,
-    pub player_address: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContractCallResponse {
     pub transaction_xdr: String,
     pub network_passphrase: String,

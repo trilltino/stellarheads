@@ -8,7 +8,6 @@ use web_sys::window;
 #[derive(Debug, Clone)]
 pub enum FreighterError {
     FreighterExtNotFound,
-    NotAFunction(String),
     JsExecutionError(String),
     NoWindow,
     UserRejected,
@@ -20,9 +19,6 @@ impl fmt::Display for FreighterError {
         match self {
             FreighterError::FreighterExtNotFound => {
                 write!(f, "Freighter wallet extension not found. Install from https://freighter.app/")
-            }
-            FreighterError::NotAFunction(method) => {
-                write!(f, "Property {method} exists but is not a callable function")
             }
             FreighterError::JsExecutionError(msg) => {
                 write!(f, "JavaScript error: {msg}")
@@ -65,81 +61,71 @@ pub fn is_freighter_available() -> bool {
 }
 
 pub async fn connect_wallet() -> Result<String, FreighterError> {
-   web_sys::console::log_1(&JsValue::from_str(" Starting Freighter connection..."));
-   let api = get_freighter_api()?;
-
-   web_sys::console::log_1(&JsValue::from_str("Requesting access..."));
-
-   let request_access_method = Reflect::get(&api, &JsValue::from_str("requestAccess"))?;
-
-   if request_access_method.is_function() {
-       let function = request_access_method.dyn_into::<Function>()?;
-       let promise = function.call0(&api)?;
-       let promise = promise.dyn_into::<Promise>()?;
-       match JsFuture::from(promise).await {
-           Ok(_) => web_sys::console::log_1(&JsValue::from_str("Access granted!")),
-           Err(e) => {
-               web_sys::console::log_1(&JsValue::from_str("Access denied"));
-               return Err(FreighterError::from(e));
-           }
-       }
-   }
-   
-
-
-   web_sys::console::log_1(&JsValue::from_str("Getting public key..."));
-   let method_names = ["getPublicKey", "getUserInfo", "getAddress"];
-   let mut get_public_key_method = JsValue::undefined();
-
-   for method_name in &method_names {
-       let method = Reflect::get(&api, &JsValue::from_str(method_name))?;
-      
-       if method.is_function() {
-           web_sys::console::log_1(&JsValue::from_str(&format!("Found working method: {}", method_name)));
-           get_public_key_method = method;
-           break;
-       }
-   }
-
-   if get_public_key_method.is_undefined() {
-       return Err(FreighterError::NotAFunction("No valid method found".to_string()));
-   }
-   
-   let function = get_public_key_method.dyn_into::<Function>()?;
-   let promise = function.call0(&api)?;
-   let promise = promise.dyn_into::<Promise>()?;
-   
-    match JsFuture::from(promise).await {
-    Ok(result) => {
-        if let Some(public_key) = result.as_string() {
-            web_sys::console::log_1(&JsValue::from_str(&format!(" Got key: {}", public_key)));
-            Ok(public_key)
-        } 
-
-        else if let Ok(obj) = result.clone().dyn_into::<js_sys::Object>() {
-            if let Ok(address) = Reflect::get(&obj, &JsValue::from_str("address")) {
-                if let Some(address_str) = address.as_string() {
-                    web_sys::console::log_1(&JsValue::from_str(&format!("Got address: {}", address_str)));
-                    Ok(address_str)
-                } else {
-                    web_sys::console::log_1(&JsValue::from_str(&format!("Address not string: {:?}", address)));
-                    Err(FreighterError::JsExecutionError("Address property is not a string".to_string()))
-                }
-            } else {
-                web_sys::console::log_1(&JsValue::from_str(&format!("No address property found: {:?}", result)));
-                Err(FreighterError::JsExecutionError("No address property in result".to_string()))
+    web_sys::console::log_1(&JsValue::from_str("🚀 Starting Freighter connection..."));
+    
+    // Wait for Freighter to be available (give it time to inject)
+    let mut attempts = 0;
+    let api = loop {
+        match get_freighter_api() {
+            Ok(api) => break api,
+            Err(_) if attempts < 10 => {
+                attempts += 1;
+                web_sys::console::log_1(&JsValue::from_str(&format!("⏳ Waiting for Freighter... (attempt {})", attempts)));
+                // Wait 100ms between attempts
+                let promise = js_sys::Promise::resolve(&JsValue::UNDEFINED);
+                let _ = wasm_bindgen_futures::JsFuture::from(promise).await;
+                gloo::timers::future::sleep(std::time::Duration::from_millis(100)).await;
+                continue;
             }
-        } else {
-            web_sys::console::log_1(&JsValue::from_str(&format!("Unknown result type: {:?}", result)));
-            Err(FreighterError::JsExecutionError("getPublicKey returned unknown format".to_string()))
+            Err(e) => return Err(e),
         }
-    },
-    Err(e) => {
-        web_sys::console::log_1(&JsValue::from_str("getPublicKey failed"));
-        web_sys::console::log_1(&e);
-        Err(FreighterError::from(e))
+    };
+
+    // First request access permission
+    web_sys::console::log_1(&JsValue::from_str("🔐 Requesting access..."));
+    let request_access_method = Reflect::get(&api, &JsValue::from_str("requestAccess"))?;
+
+    if request_access_method.is_function() {
+        let function = request_access_method.dyn_into::<Function>()?;
+        let promise = function.call0(&api)?;
+        let promise = promise.dyn_into::<Promise>()?;
+        
+        match JsFuture::from(promise).await {
+            Ok(_) => {
+                web_sys::console::log_1(&JsValue::from_str("✅ Access granted!"));
+                
+                // Now get the public key
+                let get_public_key_method = Reflect::get(&api, &JsValue::from_str("getPublicKey"))?;
+                if get_public_key_method.is_function() {
+                    let function = get_public_key_method.dyn_into::<Function>()?;
+                    let promise = function.call0(&api)?;
+                    let promise = promise.dyn_into::<Promise>()?;
+                    
+                    match JsFuture::from(promise).await {
+                        Ok(result) => {
+                            if let Some(public_key) = result.as_string() {
+                                web_sys::console::log_1(&JsValue::from_str(&format!("✅ Got public key: {}", public_key)));
+                                return Ok(public_key);
+                            } else {
+                                return Err(FreighterError::JsExecutionError("Public key is not a string".to_string()));
+                            }
+                        },
+                        Err(e) => {
+                            return Err(FreighterError::from(e));
+                        }
+                    }
+                } else {
+                    return Err(FreighterError::JsExecutionError("getPublicKey is not a function".to_string()));
+                }
+            },
+            Err(e) => {
+                return Err(FreighterError::from(e));
+            }
+        }
+    } else {
+        return Err(FreighterError::JsExecutionError("requestAccess is not a function".to_string()));
     }
-}}
+}
 
 
 

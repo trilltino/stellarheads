@@ -21,7 +21,3 @@ pub async fn create_user(Json(req): Json<SignUpRequest>) -> (StatusCode, Json<Si
     };
     (StatusCode::CREATED, Json(resp))
 }
-
-pub async fn list_voters() -> &'static str {
-    "[]"
-}

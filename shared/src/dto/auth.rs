@@ -1,10 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Guest {
     pub username: String,
-    pub wallet_address: Option<String>,
+    pub wallet_address: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -19,4 +18,3 @@ impl std::fmt::Display for UserType {
         }
     }
 }
-

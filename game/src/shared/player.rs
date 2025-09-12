@@ -1,6 +1,6 @@
 use avian2d::prelude::*;
 use bevy::prelude::*;
-use crate::shared::{ball::Ball, goals::PlayerReset, state::AppState};
+use crate::shared::{ball::Ball, collision::CollisionLayers, scoring::PlayerReset, state::AppState};
 
 // Type aliases for complex query types
 type PlayerMovementQuery<'a> = (
@@ -96,6 +96,7 @@ pub struct PlayerBundle {
     is_grounded: IsGrounded,
     coyote_time: CoyoteTime,
     locked_axes: LockedAxes,
+    layers: avian2d::prelude::CollisionLayers,
 }
 
 impl PlayerBundle {
@@ -120,32 +121,46 @@ impl PlayerBundle {
             marker: Player,
             mass: Mass(1.0),
             locked_axes: LockedAxes::ROTATION_LOCKED, // Prevent spinning
+            layers: avian2d::prelude::CollisionLayers::new(
+                CollisionLayers::PLAYER,
+                CollisionLayers::BALL | CollisionLayers::GROUND | CollisionLayers::PLAYER
+            ),
         }
     }
 }
 
 fn spawn_player(mut commands: Commands) {
+    // Player positions perfectly scaled for 1366x768 screen
+    let player_radius = 20.0;
+    let ground_level = -350.0;  // Match ground.rs
+    let player_y = ground_level + 25.0 + player_radius; // Safely above ground surface
+    let player_separation = 300.0; // Distance from center
+    
     // Spawn local player (left side)
-    commands.spawn((
+    let left_player = commands.spawn((
         PlayerBundle::new(
-            20.0,
-            Color::srgb(0.2, 0.7, 0.9),
-            Vec3::new(-400.0, -250.0, 0.0), // Left side spawn
+            player_radius,
+            Color::srgb(0.2, 0.7, 0.9), // Blue player
+            Vec3::new(-player_separation, player_y, 0.0),
         ),
         LocalPlayer,
         Name::new("LocalPlayer"),
-    ));
+    )).id();
     
     // Spawn AI player (right side)
-    commands.spawn((
+    let right_player = commands.spawn((
         PlayerBundle::new(
-            20.0,
-            Color::srgb(1.0, 0.4, 0.2), // Orange color for AI
-            Vec3::new(400.0, -250.0, 0.0), // Right side spawn
+            player_radius,
+            Color::srgb(1.0, 0.4, 0.2), // Orange player
+            Vec3::new(player_separation, player_y, 0.0),
         ),
         AiPlayer::default(),
         Name::new("AIPlayer"),
-    ));
+    )).id();
+    
+    println!("🕹️ PLAYERS SPAWNED: Left={:?} at ({}, {}), Right={:?} at ({}, {})", 
+             left_player, -player_separation, player_y,
+             right_player, player_separation, player_y);
 }
 
 fn player_movement_input(
@@ -242,7 +257,7 @@ fn player_ball_interaction(
 
 // Ball kicking system for AI player
 fn ai_ball_interaction(
-    time: Res<Time>,
+    _time: Res<Time>,
     mut ball_query: Query<BallQuery, (With<Ball>, Without<Player>)>,
     mut ai_query: Query<(&Transform, &mut AiPlayer), (With<Player>, With<AiPlayer>)>,
 ) {
@@ -273,7 +288,7 @@ fn ai_ball_interaction(
 }
 
 fn ground_detection(
-    mut player_query: Query<GroundDetectionQuery, With<Player>>,
+    mut player_query: Query<(Entity, &mut IsGrounded, &Transform), With<Player>>,
     spatial_query: SpatialQuery,
 ) {
     for (entity, mut is_grounded, transform) in &mut player_query {
@@ -389,17 +404,19 @@ pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, spawn_player).add_systems(
-            Update,
-            (
-                ground_detection,
-                player_movement_input.after(ground_detection),
-                ai_player_movement.after(ground_detection),
-                player_ball_interaction,
-                ai_ball_interaction,
-                reset_player_positions,
-            )
-                .run_if(in_state(AppState::InGame)),
-        );
+        app.add_event::<PlayerReset>()
+            .add_systems(OnEnter(AppState::InGame), spawn_player)
+            .add_systems(
+                Update,
+                (
+                    ground_detection,
+                    player_movement_input.after(ground_detection),
+                    ai_player_movement.after(ground_detection),
+                    player_ball_interaction,
+                    ai_ball_interaction,
+                    reset_player_positions,
+                )
+                    .run_if(in_state(AppState::InGame)),
+            );
     }
 }
