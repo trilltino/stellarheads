@@ -3,17 +3,13 @@ use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
 use wasm_bindgen::prelude::*;
 
-mod egui_inspectorui;
 mod shared;
-use egui_inspectorui::EguiInspector;
-use shared::ball::{Ball, BallPlugin};
-use shared::collision::{CollisionPlugin, CollisionLayers};
-use shared::goals::GoalPlugin;
-use shared::player::{Player, AiPlayer, LocalPlayer, Speed, JumpForce, IsGrounded, CoyoteTime, PlayerPlugin};
+mod rendering;
+
+use rendering::EguiInspector;
+use shared::gameplay::{Ball, BallPlugin, CollisionPlugin, GoalPlugin, GroundPlugin, Player, AiPlayer, LocalPlayer, Speed, JumpForce, IsGrounded, CoyoteTime, PlayerPlugin};
 use shared::scoring::ScoringPlugin;
-use shared::state::AppState;
-use shared::state_ui::StateUIPlugin;
-use shared::ui::UIPlugin;
+use shared::{AppState, StateUIPlugin, UIPlugin};
 
 pub const FIXED_TIMESTEP_HZ: f64 = 60.0;
 
@@ -41,7 +37,6 @@ pub fn run_game() {
             EguiPlugin::default(),
         ))
         .insert_state(AppState::LaunchMenu)
-        .init_state::<AppState>()
         .register_type::<Ball>()
         .register_type::<Player>()
         .register_type::<AiPlayer>()
@@ -54,6 +49,7 @@ pub fn run_game() {
         .add_plugins(CollisionPlugin)
         .add_plugins(EguiInspector)
         .add_plugins(GoalPlugin)
+        .add_plugins(GroundPlugin)
         .add_plugins(ScoringPlugin)
         .add_plugins(StateUIPlugin)
         .add_plugins(UIPlugin)
@@ -64,15 +60,4 @@ pub fn run_game() {
 
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
-    commands.spawn((
-        Sprite::from_color(Color::WHITE, Vec2::new(1500.0, 25.0)),
-        Transform::from_xyz(0.0, -350.0, 0.0),
-        RigidBody::Static,
-        Collider::rectangle(750.0, 12.5),
-        avian2d::prelude::CollisionLayers::new(
-            CollisionLayers::GROUND,
-            CollisionLayers::BALL | CollisionLayers::PLAYER
-        ),
-        Name::new("Ground"),
-    ));
 }

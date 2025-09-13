@@ -1,6 +1,8 @@
 use avian2d::prelude::*;
 use bevy::prelude::*;
-use crate::shared::{ball::Ball, collision::CollisionLayers, scoring::PlayerReset, state::AppState};
+use super::{Ball, CollisionLayers};
+use crate::shared::{scoring::PlayerReset, AppState};
+use crate::shared::audio::music_system::PlayKickSound;
 
 // Type aliases for complex query types
 type PlayerMovementQuery<'a> = (
@@ -226,31 +228,33 @@ fn player_ball_interaction(
     keys: Res<ButtonInput<KeyCode>>,
     mut ball_query: Query<BallQuery, (With<Ball>, Without<Player>)>,
     player_query: Query<PlayerTransformQuery, (With<Player>, With<LocalPlayer>)>,
+    mut kick_events: EventWriter<PlayKickSound>,
 ) {
     if !keys.just_pressed(KeyCode::KeyX) {
         return;
     }
-    
+
     let Ok(player_transform) = player_query.single() else {
         return;
     };
-    
+
     let Ok((mut ball_velocity, ball_transform)) = ball_query.single_mut() else {
         return;
     };
-    
+
     let player_pos = player_transform.translation.truncate();
     let ball_pos = ball_transform.translation.truncate();
     let distance = player_pos.distance(ball_pos);
-    
+
     // Kick ball if close enough
     if distance < 60.0 {
         let kick_direction = (ball_pos - player_pos).normalize_or_zero();
         let kick_force = 400.0;
-        
+
         ball_velocity.x += kick_direction.x * kick_force;
         ball_velocity.y += kick_direction.y * kick_force + 50.0; // Add slight upward force
-        
+
+        kick_events.write(PlayKickSound);
         println!("Player kicked the ball!");
     }
 }
@@ -260,27 +264,29 @@ fn ai_ball_interaction(
     _time: Res<Time>,
     mut ball_query: Query<BallQuery, (With<Ball>, Without<Player>)>,
     mut ai_query: Query<(&Transform, &mut AiPlayer), (With<Player>, With<AiPlayer>)>,
+    mut kick_events: EventWriter<PlayKickSound>,
 ) {
     let Ok((mut ball_velocity, ball_transform)) = ball_query.single_mut() else {
         return;
     };
-    
+
     for (ai_transform, mut ai_player) in ai_query.iter_mut() {
         let ai_pos = ai_transform.translation.truncate();
         let ball_pos = ball_transform.translation.truncate();
         let distance = ai_pos.distance(ball_pos);
-        
+
         // AI tries to kick when close to ball and in chase mode
         if distance < 60.0 && ai_player.behavior_state == AiBehavior::ChaseBall {
             // Add a small delay so AI doesn't kick continuously
             if ai_player.decision_timer.elapsed_secs() > 0.3 {
                 let kick_direction = (Vec2::new(-400.0, -250.0) - ball_pos).normalize_or_zero(); // Kick toward left goal
                 let kick_force = 300.0; // AI kicks slightly weaker than player
-                
+
                 ball_velocity.x += kick_direction.x * kick_force;
                 ball_velocity.y += kick_direction.y * kick_force + 30.0; // Less upward force than player
-                
+
                 ai_player.decision_timer.reset(); // Reset timer to prevent immediate re-kick
+                kick_events.write(PlayKickSound);
                 println!("AI kicked the ball!");
             }
         }

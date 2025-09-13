@@ -61,6 +61,9 @@ pub struct ContractInfo {
 extern "C" {
     #[wasm_bindgen(js_namespace = freighterApi)]
     fn isConnected() -> js_sys::Promise;
+    
+    #[wasm_bindgen(js_namespace = freighterApi)]
+    fn signTransaction(xdr: &str, options: &JsValue) -> js_sys::Promise;
 }
 
 // ===== MAIN JOIN FUNCTIONALITY =====
@@ -152,6 +155,47 @@ pub async fn complete_join_flow(
     Ok(result)
 }
 
+/// Check if a player has already joined
+pub async fn check_player_joined(player_address: &str) -> Result<PlayerJoinedResponse, String> {
+    console::log_1(&format!("📡 Checking if {} has joined...", player_address).into());
+    let response = Request::get(&format!("http://localhost:3000/check-joined?player_address={}", player_address))
+        .send()
+        .await
+        .map_err(|e| format!("Failed to check join status: {}", e))?;
+
+    if !response.ok() {
+        return Err(format!("Backend error: {}", response.status()));
+    }
+    let status: PlayerJoinedResponse = response.json()
+        .await
+        .map_err(|e| format!("Failed to parse response: {}", e))?;
+
+    console::log_1(&format!("✅ Join status: {}", status.message).into());
+
+    Ok(status)
+}
+
+/// Get all players who have joined
+pub async fn get_joined_players() -> Result<JoinedPlayersResponse, String> {
+    console::log_1(&"📡 Fetching all joined players...".into());
+
+    let response = Request::get("http://localhost:3000/joined-players")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch joined players: {}", e))?;
+
+    if !response.ok() {
+        return Err(format!("Backend error: {}", response.status()));
+    }
+
+    let players: JoinedPlayersResponse = response.json()
+        .await
+        .map_err(|e| format!("Failed to parse response: {}", e))?;
+
+    console::log_1(&format!("✅ Found {} joined players", players.count).into());
+
+    Ok(players)
+}
 
 /// Sign transaction with Freighter wallet
 pub async fn sign_transaction_with_freighter(
@@ -159,14 +203,10 @@ pub async fn sign_transaction_with_freighter(
     network_passphrase: &str,
 ) -> Result<SignTransactionResponse, String> {
     
-    // Use the same Freighter API access as connect_wallet
+    // Check if Freighter is available
     let window = window().ok_or("No window object")?;
-    let freighter_api = js_sys::Reflect::get(window.as_ref(), &"freighterApi".into())
-        .map_err(|_| "Freighter API not found")?;
-        
-    if freighter_api.is_undefined() || freighter_api.is_null() {
-        return Err("Freighter API not available for signing".to_string());
-    }
+    let _freighter_api = window.get("freighterApi")
+        .ok_or("Freighter API not found")?;
 
     // Create signing options
     let options = js_sys::Object::new();
@@ -176,25 +216,9 @@ pub async fn sign_transaction_with_freighter(
         &network_passphrase.into(),
     ).map_err(|_| "Failed to set network passphrase")?;
 
-    // Get the signTransaction method from the API
-    let sign_method = js_sys::Reflect::get(&freighter_api, &"signTransaction".into())
-        .map_err(|_| "signTransaction method not found")?;
-    
-    let sign_function = sign_method.dyn_into::<js_sys::Function>()
-        .map_err(|_| "signTransaction is not a function")?;
-
-    // Call signTransaction with the XDR and options
-    let args = js_sys::Array::new();
-    args.push(&transaction_xdr.into());
-    args.push(&options);
-
-    let sign_promise = sign_function.apply(&freighter_api, &args)
-        .map_err(|e| format!("Failed to call signTransaction: {:?}", e))?;
-    
-    let promise = sign_promise.dyn_into::<js_sys::Promise>()
-        .map_err(|_| "signTransaction did not return a promise")?;
-
-    let sign_result = JsFuture::from(promise)
+    // Sign the transaction
+    let sign_promise = signTransaction(transaction_xdr, &options.into());
+    let sign_result = JsFuture::from(sign_promise)
         .await
         .map_err(|e| format!("Freighter signing failed: {:?}", e))?;
 
@@ -209,3 +233,20 @@ pub async fn sign_transaction_with_freighter(
     })
 }
 
+/// Get mock contract info (since we don't have a real contract endpoint)
+pub async fn get_contract_info() -> Result<ContractInfo, String> {
+    console::log_1(&"📡 Getting contract information...".into());
+    
+    // Mock contract info since backend doesn't have this endpoint
+    let contract_info = ContractInfo {
+        contract_address: "CDDG3FABIMQ2STFKNXJXDYOBU6U37G2JSD4DSF4AM4YHAEIYCC4WDNCI".to_string(),
+        network_passphrase: "Test SDF Network ; September 2015".to_string(),
+        network_name: "Testnet".to_string(),
+        rpc_url: "https://soroban-testnet.stellar.org".to_string(),
+    };
+
+    console::log_1(&format!("✅ Contract Address: {}", contract_info.contract_address).into());
+    console::log_1(&format!("🌐 Network: {}", contract_info.network_name).into());
+    
+    Ok(contract_info)
+}

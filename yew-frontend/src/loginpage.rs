@@ -21,7 +21,7 @@ pub fn login_page() -> Html {
     let wallet_address = use_state(|| None::<String>);
     let loading = use_state(|| false);
     let error_message = use_state(|| None::<String>);
-    let freighter_available = use_state(|| true); // Assume available, will check when user tries to connect
+    let freighter_available = use_state(|| true); 
     let current_step = use_state(|| LoginStep::Username);
     let show_step_animation = use_state(|| false);
 

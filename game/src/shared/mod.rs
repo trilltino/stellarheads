@@ -1,9 +1,7 @@
-pub mod ball;
-pub mod collision;
-pub mod goals;
-pub mod ground;
-pub mod player;
+pub mod audio;
+pub mod gameplay;
 pub mod scoring;
-pub mod state;
-pub mod state_ui;
 pub mod ui;
+
+// Re-export commonly used UI types for better IDE support
+pub use ui::{AppState, StateUIPlugin, UIPlugin};

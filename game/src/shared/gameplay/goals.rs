@@ -1,8 +1,8 @@
 use avian2d::prelude::*;
 use bevy::prelude::*;
 use crate::shared::scoring::GoalTeam;
-use crate::shared::collision::CollisionLayers;
-use crate::shared::state::AppState;
+use super::CollisionLayers;
+use crate::shared::AppState;
 
 #[derive(Component)]
 pub struct Goal {
@@ -39,7 +39,7 @@ fn spawn_soccer_goal(
     x_position: f32,
     team: GoalTeam,
     ground_top: f32,
-    goal_width: f32,
+    _goal_width: f32,
     goal_height: f32,
     post_thickness: f32,
     net_thickness: f32,

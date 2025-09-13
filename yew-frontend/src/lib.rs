@@ -1,3 +1,4 @@
+pub mod api;
 pub mod freighter;
 pub mod loginpage;
 pub mod gamepage; 

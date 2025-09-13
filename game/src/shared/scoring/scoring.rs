@@ -1,5 +1,23 @@
 use bevy::prelude::*;
-use crate::shared::state::AppState;
+use crate::shared::AppState;
+use shared::dto::game::{GameResult, GameScore, MatchResult, GameResultResponse};
+
+// ================= Player Information =================
+
+#[derive(Resource, Default)]
+pub struct PlayerInfo {
+    pub username: String,
+    pub wallet_address: String,
+}
+
+impl PlayerInfo {
+    pub fn new(username: String, wallet_address: String) -> Self {
+        Self {
+            username,
+            wallet_address,
+        }
+    }
+}
 
 // ================= Score Management =================
 
@@ -242,6 +260,79 @@ pub fn handle_match_finished(
     }
 }
 
+pub fn send_game_result_system(
+    mut match_events: EventReader<MatchFinished>,
+    score: Res<Score>,
+    timer: Res<GameTimer>,
+    player_info: Res<PlayerInfo>,
+) {
+    for event in match_events.read() {
+        if player_info.username.is_empty() || player_info.wallet_address.is_empty() {
+            println!("⚠️ Player info not set, skipping game result submission");
+            continue;
+        }
+
+        let match_result = match &event.winner {
+            Some(GoalTeam::Left) => MatchResult::Win, // Assuming player is always left team for single player
+            Some(GoalTeam::Right) => MatchResult::Loss,
+            None => MatchResult::Draw,
+        };
+
+        let game_result = GameResult::new(
+            player_info.username.clone(),
+            player_info.wallet_address.clone(),
+            match_result,
+            GameScore {
+                left_team: score.left_team,
+                right_team: score.right_team,
+            },
+            timer.match_duration - timer.remaining_time,
+        );
+
+        // Spawn a task to send the result
+        let client = reqwest::Client::new();
+        let result_clone = game_result.clone();
+        
+        tokio::spawn(async move {
+            match send_game_result_to_backend(client, result_clone).await {
+                Ok(_) => println!("✅ Game result sent successfully"),
+                Err(e) => println!("❌ Failed to send game result: {}", e),
+            }
+        });
+    }
+}
+
+async fn send_game_result_to_backend(
+    client: reqwest::Client,
+    game_result: GameResult,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let response = client
+        .post("http://127.0.0.1:3000/api/game/result")
+        .json(&game_result)
+        .send()
+        .await?;
+
+    if response.status().is_success() {
+        let result: GameResultResponse = response.json().await?;
+        println!("🎮 Backend response: {}", result.message);
+    } else {
+        println!("❌ Backend returned error: {}", response.status());
+    }
+
+    Ok(())
+}
+
+// ================= Setup System =================
+
+pub fn setup_player_info(mut player_info: ResMut<PlayerInfo>) {
+    if player_info.username.is_empty() {
+        // Set default player info for testing
+        player_info.username = "test_player".to_string();
+        player_info.wallet_address = "GCKFBEIYTKP33TO3QLCCKMXOMVK7X4PYC7_TEST_ADDRESS".to_string();
+        println!("🎮 Default player info set: {}", player_info.username);
+    }
+}
+
 // ================= Scoring Plugin =================
 
 pub struct ScoringPlugin;
@@ -253,11 +344,13 @@ impl Plugin for ScoringPlugin {
             .init_resource::<Score>()
             .init_resource::<ScoreNotifications>()
             .init_resource::<GameTimer>()
+            .init_resource::<PlayerInfo>()
             // Add events
             .add_event::<GoalScored>()
             .add_event::<MatchFinished>()
             .add_event::<PlayerReset>()
             // Add systems
+            .add_systems(Startup, setup_player_info)
             .add_systems(
                 Update,
                 (
@@ -265,6 +358,7 @@ impl Plugin for ScoringPlugin {
                     reset_score_system,
                     game_timer_system,
                     handle_match_finished,
+                    send_game_result_system,
                 ).run_if(in_state(AppState::InGame)),
             );
     }

@@ -9,6 +9,7 @@ use backend::database::connection::create_pool;
 use backend::handlers::{
     soroban::{create_join_transaction, check_player_joined, submit_signed_transaction},
     auth::register_guest,
+    game::{submit_game_result, get_player_stats},
 };
 
 #[tokio::main]
@@ -25,6 +26,8 @@ async fn main() {
         .route("/check-joined", get(check_player_joined))
         .route("/submit-signed-transaction", post(submit_signed_transaction))
         .route("/api/guest", post(register_guest))
+        .route("/api/game/result", post(submit_game_result))
+        .route("/api/game/stats", get(get_player_stats))
         .layer(CorsLayer::permissive())
         .with_state(pool);
 

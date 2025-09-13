@@ -270,26 +270,6 @@ pub fn game_page() -> Html {
         || console::log_1(&"GamePage component unmounted".into())
     });
 
-    let on_load_game = Callback::from(|_| {
-        console::log_1(&"Loading Stellar Heads game in iframe...".into());
-        
-        // Show/reload the iframe
-        let window = web_sys::window().unwrap();
-        let document = window.document().unwrap();
-        
-        if let Some(iframe) = document.get_element_by_id("game-iframe") {
-            // Reload the iframe with a cache-busting parameter
-            let iframe: web_sys::HtmlElement = iframe.dyn_into().unwrap();
-            let timestamp = js_sys::Date::now();
-            iframe.set_attribute("src", &format!("http://127.0.0.1:1334?t={}", timestamp)).unwrap();
-        }
-        
-        // Hide the game status overlay
-        if let Some(status) = document.get_element_by_id("game-status") {
-            let status: web_sys::HtmlElement = status.dyn_into().unwrap();
-            let _ = status.set_attribute("style", "display: none;");
-        }
-    });
 
     let on_join_contract = {
         let wallet_addr = wallet_addr.clone();
@@ -358,9 +338,13 @@ pub fn game_page() -> Html {
                 />
             </div>
             <div class="controls">
-                <div class="blockchain-section">
-                    <h3>{"🚀 Stellar Contract"}</h3>
-                    <p class="contract-info">{"Join the leaderboard contract to compete!"}</p>
+                <div class="main-section">
+                    <h2>{"🌟 Stellar Heads Game"}</h2>
+                    <p class="player-info">{format!("Player: {} | Wallet: {}...{}", 
+                        username.as_str(), 
+                        &wallet_addr[0..std::cmp::min(6, wallet_addr.len())],
+                        if wallet_addr.len() > 8 { &wallet_addr[wallet_addr.len()-4..] } else { "" }
+                    )}</p>
                     
                     {
                         if let Some(result) = (*join_result).clone() {
@@ -375,7 +359,7 @@ pub fn game_page() -> Html {
                     }
                     
                     <button 
-                        class="join-btn"
+                        class="join-contract-btn"
                         onclick={on_join_contract}
                         disabled={*joining_contract}
                     >
@@ -390,31 +374,15 @@ pub fn game_page() -> Html {
                             } else {
                                 html! {
                                     <>
-                                        <span>{"🌟 Join Leaderboard Contract"}</span>
-                                        <span class="freighter-icon">{"🛸"}</span>
+                                        <span>{"🚀 Join Leaderboard Contract"}</span>
                                     </>
                                 }
                             }
                         }
                     </button>
+                    
+                    <p class="contract-info">{"Join the Stellar contract to compete on the leaderboard!"}</p>
                 </div>
-
-                <div class="game-section">
-                    <p class="instructions">{"Game Status: "}<span style="color: #10b981;">{"✅ Running"}</span></p>
-                    <button onclick={on_load_game}>
-                        {"🎮 Load Game"}
-                    </button>
-                    <p class="server-info">{"Game server: http://127.0.0.1:1334"}</p>
-                </div>
-
-                <div class="debug-section">
-                    <p class="debug-info">{format!("Player: {} | Wallet: {}...{}", 
-                        username.as_str(), 
-                        &wallet_addr[0..std::cmp::min(4, wallet_addr.len())],
-                        if wallet_addr.len() > 8 { &wallet_addr[wallet_addr.len()-4..] } else { "" }
-                    )}</p>
-                </div>
-                
             </div>
             <style>
                 {r#"
@@ -530,55 +498,66 @@ pub fn game_page() -> Html {
                 
                 .controls {
                     background: #e9ecef;
-                    padding: 1rem;
+                    padding: 2rem;
                     text-align: center;
-                    display: flex;
-                    flex-direction: column;
-                    gap: 1.5rem;
                 }
 
-                .blockchain-section {
+                .main-section {
                     background: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%);
                     color: white;
-                    padding: 1.5rem;
-                    border-radius: 12px;
+                    padding: 2rem;
+                    border-radius: 16px;
                     text-align: center;
+                    max-width: 500px;
+                    margin: 0 auto;
                 }
 
-                .blockchain-section h3 {
+                .main-section h2 {
                     margin: 0 0 1rem 0;
-                    font-size: 1.3rem;
+                    font-size: 1.8rem;
+                    font-weight: 700;
+                }
+
+                .player-info {
+                    background: rgba(255, 255, 255, 0.1);
+                    border-radius: 8px;
+                    padding: 1rem;
+                    margin-bottom: 1.5rem;
+                    font-family: 'Monaco', 'Consolas', monospace;
+                    font-size: 0.9rem;
                 }
 
                 .contract-info {
-                    margin-bottom: 1rem;
+                    margin-top: 1rem;
                     opacity: 0.9;
+                    font-size: 0.9rem;
                 }
 
-                .join-btn {
+                .join-contract-btn {
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     gap: 0.5rem;
                     width: 100%;
-                    padding: 1rem 2rem;
+                    padding: 1.25rem 2rem;
                     background: rgba(255, 255, 255, 0.2);
                     color: white;
-                    border: 1px solid rgba(255, 255, 255, 0.3);
+                    border: 2px solid rgba(255, 255, 255, 0.3);
                     border-radius: 12px;
                     font-weight: 600;
-                    font-size: 1rem;
+                    font-size: 1.1rem;
                     cursor: pointer;
                     transition: all 0.3s ease;
                 }
 
-                .join-btn:hover:not(:disabled) {
+                .join-contract-btn:hover:not(:disabled) {
                     background: rgba(255, 255, 255, 0.3);
+                    border-color: rgba(255, 255, 255, 0.5);
                     transform: translateY(-2px);
-                    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+                    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
                 }
 
-                .join-btn:disabled {
+                .join-contract-btn:disabled {
                     opacity: 0.6;
                     cursor: not-allowed;
                 }
@@ -599,85 +578,6 @@ pub fn game_page() -> Html {
                     margin-bottom: 1rem;
                     font-family: 'Monaco', 'Consolas', monospace;
                     font-size: 0.9rem;
-                }
-
-                .game-section {
-                    background: rgba(79, 70, 229, 0.1);
-                    padding: 1rem;
-                    border-radius: 8px;
-                }
-
-                .debug-section {
-                    background: rgba(0, 0, 0, 0.05);
-                    padding: 0.5rem;
-                    border-radius: 6px;
-                }
-                
-                .instructions {
-                    margin: 1rem 0 0.5rem 0;
-                    font-weight: 600;
-                }
-                
-                .debug-info {
-                    font-size: 0.8rem;
-                    color: #666;
-                    margin-top: 1rem;
-                }
-                
-                .server-info {
-                    font-size: 0.7rem;
-                    color: #888;
-                    font-family: 'Monaco', 'Consolas', monospace;
-                    margin-top: 0.5rem;
-                }
-
-                .blockchain-demo {
-                    margin-top: 2rem;
-                    padding: 1.5rem;
-                    background: rgba(79, 70, 229, 0.1);
-                    border: 1px solid rgba(79, 70, 229, 0.3);
-                    border-radius: 12px;
-                }
-
-                .blockchain-demo h3 {
-                    margin: 0 0 1rem 0;
-                    color: #4f46e5;
-                    font-size: 1.2rem;
-                }
-
-                .blockchain-demo p {
-                    margin: 0 0 1rem 0;
-                    color: #666;
-                    font-size: 0.9rem;
-                }
-                
-                .join-status {
-                    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-                    color: white;
-                    padding: 1rem;
-                    border-radius: 8px;
-                    text-align: center;
-                    margin-top: 1rem;
-                }
-                
-                .join-status h3 {
-                    margin-top: 0;
-                    color: white;
-                }
-                
-                .join-status .contract-info, 
-                .join-status .network-info {
-                    font-size: 0.85rem;
-                    opacity: 0.9;
-                    margin: 0.25rem 0;
-                }
-                
-                code {
-                    background: #495057;
-                    color: #f8f9fa;
-                    padding: 0.5rem;
-                    border-radius: 4px;
-                    font-family: 'Monaco', 'Consolas', monospace;
                 }
                 "#}
             </style>

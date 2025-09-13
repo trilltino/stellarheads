@@ -1,5 +1,5 @@
-use crate::shared::collision::CollisionLayers;
-use crate::shared::state::AppState;
+use super::collision::CollisionLayers;
+use crate::shared::AppState;
 
 use avian2d::prelude::*;
 use bevy::prelude::*;

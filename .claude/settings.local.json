@@ -6,7 +6,12 @@
       "Bash(find:*)",
       "Bash(cargo:*)",
       "Bash(trunk serve:*)",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(mkdir:*)",
+      "Bash(mv:*)",
+      "Bash(pkill:*)",
+      "Bash(timeout 10 cargo check --message-format=json)",
+      "Bash(timeout 10 cargo run --bin stellar_heads)"
     ],
     "deny": [],
     "ask": []

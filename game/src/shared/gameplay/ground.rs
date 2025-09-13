@@ -1,6 +1,6 @@
 use avian2d::prelude::*;
 use bevy::prelude::*;
-use crate::shared::collision::CollisionLayers;
+use super::CollisionLayers;
 
 pub struct GroundPlugin;
 

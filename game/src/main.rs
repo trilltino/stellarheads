@@ -2,19 +2,14 @@ use avian2d::prelude::*;
 use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
 use bevy::core_pipeline::bloom::Bloom;
-mod egui_inspectorui;
 mod shared;
-mod server;
-use egui_inspectorui::EguiInspector;
-use shared::ball::{Ball, BallPlugin};
-use shared::collision::CollisionPlugin;
-use shared::goals::GoalPlugin;
-use shared::ground::GroundPlugin;
-use shared::player::{Player, AiPlayer, LocalPlayer, Speed, JumpForce, IsGrounded, CoyoteTime, PlayerPlugin};
+mod rendering;
+
+// use rendering::EguiInspector; // Disabled
+use shared::audio::GameAudioPlugin;
+use shared::gameplay::{Ball, BallPlugin, CollisionPlugin, GoalPlugin, GroundPlugin, Player, AiPlayer, LocalPlayer, Speed, JumpForce, IsGrounded, CoyoteTime, PlayerPlugin};
 use shared::scoring::ScoringPlugin;
-use shared::state::AppState;
-use shared::state_ui::StateUIPlugin;
-use shared::ui::UIPlugin;
+use shared::{AppState, StateUIPlugin, UIPlugin};
 
 pub const FIXED_TIMESTEP_HZ: f64 = 60.0;
 
@@ -24,8 +19,8 @@ fn main() {
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
                     title: "🌟 Stellar Heads".into(),
-                    resolution: (1366.0, 768.0).into(), // Fixed standard laptop size
-                    resizable: false, // Fixed window size
+                    resolution: (1366.0, 768.0).into(),
+                    resizable: false,
                     ..default()
                 }),
                 ..default()
@@ -33,9 +28,9 @@ fn main() {
             PhysicsPlugins::default(),
             EguiPlugin::default(),
         ))
+        .init_asset::<bevy::audio::AudioSource>()
         .insert_resource(ClearColor(Color::srgb(0.05, 0.05, 0.1)))
         .insert_state(AppState::LaunchMenu)
-        .init_state::<AppState>()
         .register_type::<Ball>()
         .register_type::<Player>()
         .register_type::<AiPlayer>()
@@ -46,7 +41,8 @@ fn main() {
         .register_type::<CoyoteTime>()
         .add_plugins(BallPlugin)
         .add_plugins(CollisionPlugin)
-        .add_plugins(EguiInspector)
+        // .add_plugins(EguiInspector)  // Disabled due to EGUI context issues
+        .add_plugins(GameAudioPlugin)
         .add_plugins(GoalPlugin)
         .add_plugins(GroundPlugin)
         .add_plugins(ScoringPlugin)

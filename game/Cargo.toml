@@ -9,26 +9,18 @@ path = "src/main.rs"
 
 [lib]
 name = "stellar_heads_game"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
-[features]
-default = ["client", "server", "gui"]
-client = []
-server = []
-gui = []
+# Removed networking features - single-player game only
 
 [dependencies]
 # Strip Bevy down to essentials only
-bevy = { version = "0.16.1", default-features = false, features = [ 
-    "bevy_dev_tools", "bevy_state",
-    "bevy_winit", "bevy_render", "bevy_core_pipeline", "bevy_sprite", 
-    "bevy_asset", "png", "webgl2"
+bevy = { version = "0.16.1", default-features = false, features = [
+    "bevy_state", "bevy_winit", "bevy_render", "bevy_core_pipeline",
+    "bevy_sprite", "bevy_asset", "bevy_audio", "vorbis", "png"
 ] }
 
-# Keep your networking as-is
-lightyear = { version = "0.23.0", features = [
-    "interpolation", "prediction", "replication", "leafwing", "deterministic"
-] }
+# Removed lightyear - not needed for single-player game
 
 # Strip physics features for dev
 avian2d = { version = "0.3.1", default-features = false, features = [
@@ -36,18 +28,18 @@ avian2d = { version = "0.3.1", default-features = false, features = [
 ] }
 
 bevy_egui = "0.36.0"
-leafwing-input-manager = { version = "0.16.0", default-features = false }
-lightyear_avian2d = { version = "0.23.0", features = ["deterministic", "2d"] }
+# Removed leafwing-input-manager and lightyear_avian2d - not needed for single-player
 serde = { version = "1.0", default-features = false, features = ["derive"] }
-clap = { version = "4.0", default-features = false, features = ["derive","std"] }
-cfg-if = "1.0"
+# Removed clap and cfg-if - not needed for single-player
 bevy-inspector-egui = "0.33.1"
 bevy_window = "0.16.1"
 egui = "0.32.2"
 wasm-bindgen = "0.2"
 getrandom = { version = "0.3", features = ["wasm_js"] }
 console_error_panic_hook = "0.1.6"
-bevy_kira_audio = "0.23.0"
+shared = { path = "../shared" }
+reqwest = { version = "0.12", features = ["json"] }
+tokio = { version = "1.0", features = ["rt"] }
 
 [dependencies.web-sys]
 version = "0.3.78"
@@ -58,17 +50,11 @@ features = [
 
 # Fast dev builds
 [profile.dev]
-opt-level = 1
+opt-level = 0
 debug = true
 incremental = true
 
-# Optimize deps, not your code
-[profile.dev.package."*"]
-opt-level = 3
-debug = false
-
-# Super fast iteration profile  
-[profile.dev-fast]
-inherits = "dev"
-opt-level = 0
-debug = false
+# Optimize deps, not your code - COMMENTED OUT TO FIX LINKING
+# [profile.dev.package."*"]
+# opt-level = 3
+# debug = false

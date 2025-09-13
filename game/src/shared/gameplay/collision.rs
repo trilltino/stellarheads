@@ -1,9 +1,9 @@
 use avian2d::prelude::*;
 use bevy::prelude::*;
-use crate::shared::state::AppState;
+use crate::shared::AppState;
 use crate::shared::scoring::{GoalScored, GoalTeam};
-use crate::shared::ball::Ball;
-use crate::shared::goals::Goal;
+use crate::shared::audio::music_system::PlayKickSound;
+use super::{Ball, Goal, Player};
 
 // ================= Goal Detection Components =================
 // Goal components are now defined in goals.rs
@@ -18,6 +18,30 @@ impl CollisionLayers {
     pub const GOAL: u32 = 1 << 1;
     pub const PLAYER: u32 = 1 << 2;
     pub const GROUND: u32 = 1 << 3;
+}
+
+// ================= Ball-Player Collision System =================
+
+pub fn ball_kick_collision_system(
+    mut collision_events: EventReader<CollisionStarted>,
+    balls: Query<Entity, With<Ball>>,
+    players: Query<Entity, With<Player>>,
+    mut kick_events: EventWriter<PlayKickSound>,
+) {
+    for collision in collision_events.read() {
+        let entity_a = collision.0;
+        let entity_b = collision.1;
+
+        // Check if this is a ball-player collision
+        let is_ball_player_collision =
+            (balls.contains(entity_a) && players.contains(entity_b)) ||
+            (balls.contains(entity_b) && players.contains(entity_a));
+
+        if is_ball_player_collision {
+            kick_events.write(PlayKickSound);
+            println!("⚽ Player kicked the ball!");
+        }
+    }
 }
 
 // ================= Goal Detection System =================
@@ -129,15 +153,7 @@ fn debug_collisions(
 ) {
     let collision_count = collision_events.len();
     
-    // Log every frame to see if collision system is running at all
-    static mut FRAME_COUNT: u32 = 0;
-    unsafe {
-        FRAME_COUNT += 1;
-        if FRAME_COUNT % 60 == 0 { // Every second at 60fps
-            println!("📊 DEBUG: Frame {}, {} collisions this frame, {} balls, {} goals", 
-                     FRAME_COUNT, collision_count, balls.iter().count(), goals.iter().count());
-        }
-    }
+    // Debug frame logging - remove static mut which causes undefined behavior
     
     if collision_count > 0 {
         println!("🔔 COLLISION EVENTS: {} events detected!", collision_count);
@@ -178,6 +194,7 @@ impl Plugin for CollisionPlugin {
                 Update,
                 (
                     score_on_goal_collision.run_if(in_state(AppState::InGame)), // Only in InGame state
+                    ball_kick_collision_system.run_if(in_state(AppState::InGame)), // Ball kick detection
                     debug_collisions, // Debug runs always
                 ),
             );
