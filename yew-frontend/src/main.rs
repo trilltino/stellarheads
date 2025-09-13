@@ -1,5 +1,6 @@
 use yew::Renderer;
 
+mod api;
 mod freighter;
 mod loginpage;
 mod gamepage;

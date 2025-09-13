@@ -5,10 +5,14 @@
     <title>Stellar Heads</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <base href="/" />
+
+    <!-- Load Freighter API from CDN - this is the missing piece! -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stellar-freighter-api/4.1.0/index.min.js"></script>
+
     
 <script type="module">
-import init, * as bindings from '/yew-scaffold-76b5c94ce55c3168.js';
-const wasm = await init({ module_or_path: '/yew-scaffold-76b5c94ce55c3168_bg.wasm' });
+import init, * as bindings from '/yew-scaffold-d28703844e68ebca.js';
+const wasm = await init({ module_or_path: '/yew-scaffold-d28703844e68ebca_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -77,7 +81,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
             background: #3730a3;
         }
     </style>
-<link rel="modulepreload" href="/yew-scaffold-76b5c94ce55c3168.js" crossorigin="anonymous" integrity="sha384-rv/dCj1rcFgCJ2JaROXHWCjMfN0cqDacBq0LXwmeGvIKZumoSRD+2fKFU/AUVjdB"><link rel="preload" href="/yew-scaffold-76b5c94ce55c3168_bg.wasm" crossorigin="anonymous" integrity="sha384-a/pOqfXr1qpRKAU9vHXxolR/d8dGQNwIbInsrQFBImeXI4NXUmwvfaVeM1M4rx5m" as="fetch" type="application/wasm"></head>
+<link rel="modulepreload" href="/yew-scaffold-d28703844e68ebca.js" crossorigin="anonymous" integrity="sha384-9+wMSc0435wqTh7rzcHYQ4OzsuyZl5kZUs3QLbqbiPSDTrFvuY7JAyM7rrg/uso1"><link rel="preload" href="/yew-scaffold-d28703844e68ebca_bg.wasm" crossorigin="anonymous" integrity="sha384-eWby/ohtszOoOze3w2ZfRR3yfPULZboXX0HmnRVoFPRfQkg+V1sR8X+jsuTQn0Dy" as="fetch" type="application/wasm"></head>
 <body>
     <script type="module">
         // Wait for Freighter extension to inject its API

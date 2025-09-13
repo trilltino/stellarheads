@@ -5,6 +5,8 @@ use gloo::storage::{LocalStorage, Storage};
 use crate::routes::Route;
 use crate::freighter::connect_wallet;
 use crate::soroban::complete_join_flow;
+use crate::api::ApiClient;
+use shared::dto::auth::Guest;
 
 #[derive(Debug, Clone, PartialEq)]
 enum LoginStep {
@@ -21,9 +23,27 @@ pub fn login_page() -> Html {
     let wallet_address = use_state(|| None::<String>);
     let loading = use_state(|| false);
     let error_message = use_state(|| None::<String>);
-    let freighter_available = use_state(|| true); 
+    let freighter_available = use_state(|| false); 
     let current_step = use_state(|| LoginStep::Username);
     let show_step_animation = use_state(|| false);
+
+    // Simple Freighter check on mount (like working yew-scaffold)
+    {
+        let freighter_available = freighter_available.clone();
+        use_effect_with((), move |_| {
+            // Simple immediate check, then wait a bit and check again
+            if crate::freighter::is_freighter_available() {
+                freighter_available.set(true);
+            } else {
+                // Wait a moment for extension to load, then check once more
+                wasm_bindgen_futures::spawn_local(async move {
+                    gloo::timers::future::sleep(std::time::Duration::from_millis(1000)).await;
+                    freighter_available.set(crate::freighter::is_freighter_available());
+                });
+            }
+            || ()
+        });
+    }
 
     let on_username = {
         let username = username.clone();
@@ -69,35 +89,77 @@ pub fn login_page() -> Html {
             error_message.set(None);
             
             wasm_bindgen_futures::spawn_local(async move {
+                web_sys::console::log_1(&"🔗 Starting wallet connection process...".into());
                 match connect_wallet().await {
                     Ok(address) => {
                         wallet_address.set(Some(address.clone()));
                         web_sys::console::log_1(&format!("Wallet connected: {}", address).into());
-                        
-                        // Store wallet address locally
-                        let _ = LocalStorage::set("wallet_address", &address);
+
                         let username_val = username.as_str().to_string();
-                        let _ = LocalStorage::set("username", &username_val);
-                        
-                        // Skip automatic contract joining - let user do it manually in GamePage
-                        show_step_animation.set(true);
-                        gloo::timers::callback::Timeout::new(300, {
-                            let current_step = current_step.clone();
-                            let show_step_animation = show_step_animation.clone();
-                            let loading = loading.clone();
-                            move || {
-                                current_step.set(LoginStep::Complete);
-                                show_step_animation.set(false);
+
+                        // Save user to backend database
+                        let api_client = ApiClient::default();
+                        let guest = Guest {
+                            username: username_val.clone(),
+                            wallet_address: address.clone(),
+                        };
+
+                        web_sys::console::log_1(&"💾 Attempting to save user to backend...".into());
+                        match api_client.register_guest(guest).await {
+                            Ok(response) => {
+                                web_sys::console::log_1(&format!("✅ User saved to backend: {}", response.message).into());
+
+                                // Store wallet address and user data locally
+                                let _ = LocalStorage::set("wallet_address", &address);
+                                let _ = LocalStorage::set("username", &username_val);
+                                let _ = LocalStorage::set("user_id", &response.user.id);
+
+                                // Complete the login flow
+                                show_step_animation.set(true);
+                                gloo::timers::callback::Timeout::new(300, {
+                                    let current_step = current_step.clone();
+                                    let show_step_animation = show_step_animation.clone();
+                                    let loading = loading.clone();
+                                    move || {
+                                        current_step.set(LoginStep::Complete);
+                                        show_step_animation.set(false);
+                                        loading.set(false);
+                                    }
+                                }).forget();
+                            }
+                            Err(backend_err) => {
+                                web_sys::console::log_1(&format!("❌ Backend save failed: {}", backend_err).into());
+
+                                // Check if it's a network connection issue to backend
+                                if backend_err.contains("Network error") || backend_err.contains("Failed to fetch") {
+                                    error_message.set(Some("Cannot connect to backend server. Please ensure the server is running on localhost:3000".to_string()));
+                                } else {
+                                    error_message.set(Some(format!("Failed to save user: {}", backend_err)));
+                                }
                                 loading.set(false);
                             }
-                        }).forget();
+                        }
                     }
                     Err(err) => {
-                        error_message.set(Some(err.to_string()));
-                        web_sys::console::log_1(&format!("Wallet connection failed: {}", err).into());
+                        web_sys::console::log_1(&format!("❌ Wallet connection failed: {}", err).into());
+
+                        // Provide more helpful error messages to user
+                        let user_message = match err.to_string().as_str() {
+                            msg if msg.contains("User rejected") => {
+                                "Connection cancelled. Please click 'Connect' and approve the request in Freighter.".to_string()
+                            }
+                            msg if msg.contains("Freighter") && msg.contains("not found") => {
+                                "Freighter wallet not found. Please install Freighter extension and refresh the page.".to_string()
+                            }
+                            _ => {
+                                format!("Connection failed: {}", err)
+                            }
+                        };
+
+                        error_message.set(Some(user_message));
+                        loading.set(false);
                     }
                 }
-                loading.set(false);
             });
         })
     };
@@ -238,23 +300,19 @@ pub fn login_page() -> Html {
                                     <h2 class="step-title">{"Connect Your Wallet"}</h2>
                                     <p class="step-subtitle">{format!("Hello {}, let's connect your Stellar wallet", (*username).clone())}</p>
                                     
-                                    {
-                                        if !*freighter_available {
-                                            html! {
-                                                <div class="wallet-not-found">
-                                                    <div class="wallet-icon">{"🌌"}</div>
-                                                    <h3>{"Freighter Wallet Required"}</h3>
-                                                    <p>{"Install the Freighter browser extension to continue"}</p>
-                                                    <a href="https://freighter.app/" target="_blank" class="install-btn">
-                                                        {"Install Freighter"}
-                                                    </a>
-                                                </div>
-                                            }
-                                        } else {
-                                            html! {
-                                                <div class="wallet-connect">
-                                                    <div class="wallet-icon">{"🛸"}</div>
-                                                    <button 
+                                    <div class="wallet-connect">
+                                        <div class="wallet-icon">{"🛸"}</div>
+                                        {
+                                            if !*freighter_available {
+                                                html! {
+                                                    <div class="wallet-status">
+                                                        <p>{"Checking for Freighter wallet..."}</p>
+                                                        <div class="spinner"></div>
+                                                    </div>
+                                                }
+                                            } else {
+                                                html! {
+                                                    <button
                                                         class="wallet-btn"
                                                         onclick={on_connect_wallet}
                                                         disabled={*loading}
@@ -277,10 +335,10 @@ pub fn login_page() -> Html {
                                                             }
                                                         }
                                                     </button>
-                                                </div>
+                                                }
                                             }
                                         }
-                                    }
+                                    </div>
                                 </div>
                             },
                             LoginStep::JoiningContract => html! {
@@ -599,6 +657,15 @@ pub fn login_page() -> Html {
                     flex-direction: column;
                     align-items: center;
                     gap: 1.5rem;
+                }
+
+                .wallet-status {
+                    text-align: center;
+                    color: rgba(255, 255, 255, 0.7);
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 1rem;
                 }
 
                 .wallet-icon {

@@ -9,7 +9,7 @@ pub struct ApiClient {
 impl Default for ApiClient {
     fn default() -> Self {
         Self {
-            base_url: "http://localhost:8080".to_string(),
+            base_url: "http://localhost:3000".to_string(),
         }
     }
 }

@@ -11,7 +11,9 @@
       "Bash(mv:*)",
       "Bash(pkill:*)",
       "Bash(timeout 10 cargo check --message-format=json)",
-      "Bash(timeout 10 cargo run --bin stellar_heads)"
+      "Bash(timeout 10 cargo run --bin stellar_heads)",
+      "Bash(wasm-pack:*)",
+      "Bash(trunk:*)"
     ],
     "deny": [],
     "ask": []

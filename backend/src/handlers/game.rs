@@ -61,10 +61,7 @@ pub async fn submit_game_result(
 pub async fn get_player_stats(
     State(_pool): State<PgPool>,
     Query(params): Query<GameResultQuery>,
-) -> Result<Json<HashMap<String, String>>, StatusCode> {
-    // For now, return placeholder stats
-    // In a real implementation, query the game_results table
-    
+) -> Result<Json<HashMap<String, String>>, StatusCode> {   
     let username = params.username.unwrap_or_else(|| "unknown".to_string());
     let mut stats = HashMap::new();
     
