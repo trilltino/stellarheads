@@ -74,7 +74,7 @@ pub fn launch_menu_system(
         let id = splash.egui_id.expect("egui texture id present");
         egui::CentralPanel::default().show(ctx, |ui| {
             let screen_rect = ui.ctx().screen_rect();
-            let nominal_size = ui.available_size();
+            let _nominal_size = ui.available_size();
             // Use screen rect size for full screen splash
             let image = egui::Image::new((id, screen_rect.size()))
                 .fit_to_exact_size(screen_rect.size())

@@ -31,7 +31,6 @@ pub struct Ball {
 pub struct BallBundle {
     // visuals
     sprite: Sprite,
-    texture: Handle<Image>,
     transform: Transform,
     // physics
     rigid_body: RigidBody,
