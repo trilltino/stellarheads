@@ -1,6 +1,11 @@
 use bevy::prelude::*;
 use crate::shared::AppState;
-use shared::dto::game::{GameResult, GameScore, MatchResult, GameResultResponse};
+use shared::dto::game::{GameResult, MatchResult};
+
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
+
+// ================= HTTP Client for Direct Communication =================
 
 // ================= Player Information =================
 
@@ -8,6 +13,23 @@ use shared::dto::game::{GameResult, GameScore, MatchResult, GameResultResponse};
 pub struct PlayerInfo {
     pub username: String,
     pub wallet_address: String,
+}
+
+// ================= Game Session Tracking =================
+
+#[derive(Resource)]
+pub struct GameSession {
+    pub session_id: String,
+    pub started_at: std::time::Instant,
+}
+
+impl GameSession {
+    pub fn new() -> Self {
+        Self {
+            session_id: uuid::Uuid::new_v4().to_string(),
+            started_at: std::time::Instant::now(),
+        }
+    }
 }
 
 impl PlayerInfo {
@@ -148,7 +170,7 @@ pub fn handle_goal_scored(
     if event_count > 0 {
         println!("🎯 SCORING SYSTEM: Received {} GoalScored events!", event_count);
     }
-    
+
     for event in goal_events.read() {
         println!("🎯 PROCESSING GoalScored event for {:?} team at {:?}", event.scoring_team, event.goal_position);
         score.add_point(event.scoring_team.clone());
@@ -214,7 +236,7 @@ pub fn game_timer_system(
     }
 
     timer.remaining_time -= time.delta_secs();
-    
+
     // Time warnings
     let time_left = timer.remaining_time as i32;
     if time_left == 30 && (timer.remaining_time - time_left as f32).abs() < 0.1 {
@@ -222,11 +244,11 @@ pub fn game_timer_system(
     } else if time_left == 10 && (timer.remaining_time - time_left as f32).abs() < 0.1 {
         notifications.notifications.push(ScoreNotification::new("⏰ 10 SECONDS!".to_string(), 2.0));
     }
-    
+
     if timer.remaining_time <= 0.0 {
         timer.remaining_time = 0.0;
         timer.is_finished = true;
-        
+
         // Determine winner by score
         let winner = if score.left_team > score.right_team {
             Some(GoalTeam::Left)
@@ -235,7 +257,7 @@ pub fn game_timer_system(
         } else {
             None // Draw
         };
-        
+
         match_events.write(MatchFinished { winner });
     }
 }
@@ -265,6 +287,7 @@ pub fn send_game_result_system(
     score: Res<Score>,
     timer: Res<GameTimer>,
     player_info: Res<PlayerInfo>,
+    game_session: Option<Res<GameSession>>,
 ) {
     for event in match_events.read() {
         if player_info.username.is_empty() || player_info.wallet_address.is_empty() {
@@ -272,54 +295,53 @@ pub fn send_game_result_system(
             continue;
         }
 
-        let match_result = match &event.winner {
-            Some(GoalTeam::Left) => MatchResult::Win, // Assuming player is always left team for single player
-            Some(GoalTeam::Right) => MatchResult::Loss,
+        let session_id = match &game_session {
+            Some(session) => session.session_id.clone(),
+            None => {
+                println!("⚠️ No game session found, creating temporary ID");
+                uuid::Uuid::new_v4().to_string()
+            }
+        };
+
+        // Determine match result from LOCAL PLAYER's perspective
+        // Local player is left team (blue), AI opponent is right team (red)
+        let player_result = match &event.winner {
+            Some(GoalTeam::Left) => MatchResult::Win,   // Local player wins
+            Some(GoalTeam::Right) => MatchResult::Loss, // Local player loses to AI
             None => MatchResult::Draw,
         };
 
+        // Create game result with individual instance data
         let game_result = GameResult::new(
-            player_info.username.clone(),
-            player_info.wallet_address.clone(),
-            match_result,
-            GameScore {
-                left_team: score.left_team,
-                right_team: score.right_team,
-            },
+            player_info.username.clone(),        // Local player username
+            player_info.wallet_address.clone(),  // Local player wallet
+            player_result,                       // Win/Loss/Draw from player's perspective
+            score.left_team,                     // Local player's score (left team)
+            score.right_team,                    // AI opponent's score (right team)
             timer.match_duration - timer.remaining_time,
-        );
+            session_id,                          // Unique game session ID
+        ).with_game_mode("single_player_vs_ai".to_string());
 
-        // Spawn a task to send the result
-        let client = reqwest::Client::new();
-        let result_clone = game_result.clone();
-        
-        tokio::spawn(async move {
-            match send_game_result_to_backend(client, result_clone).await {
-                Ok(_) => println!("✅ Game result sent successfully"),
-                Err(e) => println!("❌ Failed to send game result: {}", e),
-            }
-        });
+        // Send game result directly to backend via HTTP
+        println!("🎮 Sending game result to backend: {:?}", game_result);
+
+        // Spawn async task to submit game result
+        let game_result_clone = game_result.clone();
+        let task = async move {
+            submit_game_result_to_backend(game_result_clone).await;
+        };
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            wasm_bindgen_futures::spawn_local(task);
+        }
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            // For native builds, use tokio spawn
+            tokio::spawn(task);
+        }
     }
-}
-
-async fn send_game_result_to_backend(
-    client: reqwest::Client,
-    game_result: GameResult,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let response = client
-        .post("http://127.0.0.1:3000/api/game/result")
-        .json(&game_result)
-        .send()
-        .await?;
-
-    if response.status().is_success() {
-        let result: GameResultResponse = response.json().await?;
-        println!("🎮 Backend response: {}", result.message);
-    } else {
-        println!("❌ Backend returned error: {}", response.status());
-    }
-
-    Ok(())
 }
 
 // ================= Setup System =================
@@ -331,6 +353,13 @@ pub fn setup_player_info(mut player_info: ResMut<PlayerInfo>) {
         player_info.wallet_address = "GCKFBEIYTKP33TO3QLCCKMXOMVK7X4PYC7_TEST_ADDRESS".to_string();
         println!("🎮 Default player info set: {}", player_info.username);
     }
+}
+
+/// System that runs when entering InGame state - creates a new game session
+pub fn create_game_session(mut commands: Commands) {
+    let session = GameSession::new();
+    println!("🎲 New game session created: {}", session.session_id);
+    commands.insert_resource(session);
 }
 
 // ================= Scoring Plugin =================
@@ -351,6 +380,7 @@ impl Plugin for ScoringPlugin {
             .add_event::<PlayerReset>()
             // Add systems
             .add_systems(Startup, setup_player_info)
+            .add_systems(OnEnter(AppState::InGame), create_game_session)
             .add_systems(
                 Update,
                 (
@@ -358,8 +388,43 @@ impl Plugin for ScoringPlugin {
                     reset_score_system,
                     game_timer_system,
                     handle_match_finished,
-                    send_game_result_system,
+                    send_game_result_system, // Direct HTTP communication
                 ).run_if(in_state(AppState::InGame)),
             );
+    }
+}
+
+// ================= HTTP Communication =================
+
+async fn submit_game_result_to_backend(game_result: GameResult) {
+    let backend_url = "http://127.0.0.1:3000/api/game/result";
+
+    match reqwest::Client::new()
+        .post(backend_url)
+        .header("Content-Type", "application/json")
+        .json(&game_result)
+        .send()
+        .await
+    {
+        Ok(response) => {
+            match response.status().as_u16() {
+                200..=299 => {
+                    println!("✅ Game result submitted successfully");
+                    if let Ok(text) = response.text().await {
+                        println!("📝 Backend response: {}", text);
+                    }
+                },
+                status => {
+                    println!("⚠️ Backend returned status {}: {}", status, response.status());
+                    if let Ok(text) = response.text().await {
+                        println!("📝 Error response: {}", text);
+                    }
+                }
+            }
+        },
+        Err(e) => {
+            println!("❌ Failed to submit game result: {}", e);
+            println!("🔗 Attempted to connect to: {}", backend_url);
+        }
     }
 }

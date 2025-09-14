@@ -30,8 +30,8 @@ pub struct Ball {
 #[derive(Bundle)]
 pub struct BallBundle {
     // visuals
-    mesh: Mesh2d,
-    material: MeshMaterial2d<ColorMaterial>,
+    sprite: Sprite,
+    texture: Handle<Image>,
     transform: Transform,
     // physics
     rigid_body: RigidBody,
@@ -50,14 +50,15 @@ pub struct BallBundle {
 impl BallBundle {
     pub fn new(
         radius: f32,
-        color: Color,
         position: Vec3,
-        meshes: &mut Assets<Mesh>,
-        materials: &mut Assets<ColorMaterial>,
+        ball_texture: Handle<Image>,
     ) -> Self {
         Self {
-            mesh: Mesh2d(meshes.add(Circle::new(radius))),
-            material: MeshMaterial2d(materials.add(ColorMaterial::from(color.mix(&Color::WHITE, 0.5)))),
+            sprite: Sprite {
+                image: ball_texture,
+                custom_size: Some(Vec2::new(radius * 2.0, radius * 2.0)),
+                ..default()
+            },
             transform: Transform::from_translation(position),
             rigid_body: RigidBody::Dynamic,
             collider: Collider::circle(radius),
@@ -68,7 +69,7 @@ impl BallBundle {
             velocity: LinearVelocity::ZERO,
             collider_density: ColliderDensity(1.0),
             layers: avian2d::prelude::CollisionLayers::new(
-                CollisionLayers::BALL, 
+                CollisionLayers::BALL,
                 CollisionLayers::GOAL | CollisionLayers::PLAYER | CollisionLayers::GROUND
             ),
             ball: Ball {
@@ -86,26 +87,27 @@ impl BallBundle {
 
 pub fn spawn_ball(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    asset_server: Res<AssetServer>,
 ) {
-    let ball_radius = 12.0; // Perfect size for 1366x768 gameplay
+    let ball_radius = 24.0; // Increased size for better visibility and gameplay
     let spawn_height = 100.0; // Lower spawn height to prevent falling through
-    
+
+    // Load the ball texture
+    let ball_texture = asset_server.load("ball/ball.png");
+
     let ball_entity = commands.spawn((
         BallBundle::new(
             ball_radius,
-            Color::srgb(1.0, 0.0, 0.0),
             Vec3::new(0.0, spawn_height, 0.0), // Center field, safer height
-            &mut meshes,
-            &mut materials,
+            ball_texture,
         ),
-        Name::new("Player Ball"),
+        Name::new("Soccer Ball"),
     )).id();
-    
-    println!("⚽ BALL SPAWNED: Entity {:?} at center field, height {} with radius {}", 
+
+    println!("⚽ BALL SPAWNED: Entity {:?} at center field, height {} with radius {}",
              ball_entity, spawn_height, ball_radius);
-    println!("   Collision layers: BALL={} (collides with GOAL={}, PLAYER={}, GROUND={})", 
+    println!("   Using ball.png texture with proper scaling");
+    println!("   Collision layers: BALL={} (collides with GOAL={}, PLAYER={}, GROUND={})",
              CollisionLayers::BALL, CollisionLayers::GOAL, CollisionLayers::PLAYER, CollisionLayers::GROUND);
 }
 

@@ -30,6 +30,7 @@ avian2d = { version = "0.3.1", default-features = false, features = [
 bevy_egui = "0.36.0"
 # Removed leafwing-input-manager and lightyear_avian2d - not needed for single-player
 serde = { version = "1.0", default-features = false, features = ["derive"] }
+serde_json = "1.0"
 # Removed clap and cfg-if - not needed for single-player
 bevy-inspector-egui = "0.33.1"
 bevy_window = "0.16.1"
@@ -40,6 +41,9 @@ console_error_panic_hook = "0.1.6"
 shared = { path = "../shared" }
 reqwest = { version = "0.12", features = ["json"] }
 tokio = { version = "1.0", features = ["rt"] }
+wasm-bindgen-futures = "0.4"
+uuid = { version = "1.0", features = ["v4"] }
+rand = "0.8"
 
 [dependencies.web-sys]
 version = "0.3.78"

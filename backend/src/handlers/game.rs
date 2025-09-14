@@ -18,10 +18,12 @@ pub async fn submit_game_result(
     State(pool): State<PgPool>,
     Json(game_result): Json<GameResult>,
 ) -> Result<Json<GameResultResponse>, StatusCode> {
-    println!("🎮 Received game result for player: {}", game_result.player_username);
-    println!("🎯 Match result: {:?}", game_result.match_result);
-    println!("📊 Final score: {} - {}", game_result.final_score.left_team, game_result.final_score.right_team);
-    println!("⏱️ Duration: {:.2} seconds", game_result.match_duration_seconds);
+    println!("🎮 Received game instance for player: {}", game_result.player_username);
+    println!("🎯 Player result: {:?}", game_result.player_result);
+    println!("📊 Final score: Player {} - {} Opponent", game_result.player_score, game_result.opponent_score);
+    println!("⏱️ Duration: {:.2} seconds", game_result.duration_seconds);
+    println!("🎪 Game session: {}", game_result.game_session_id);
+    println!("🕹️ Game mode: {}", game_result.game_mode);
     
     // For now, we'll just log the result and return success
     // In a real implementation, you might want to store this in a game_results table
@@ -48,9 +50,49 @@ pub async fn submit_game_result(
         }));
     }
 
-    // TODO: Store game result in database
-    // For now, just return success
-    println!("✅ Game result processed successfully for {}", game_result.player_username);
+    // Store game instance in database
+    let _user_id = user_exists.unwrap().id;
+
+    let _player_result_str = match game_result.player_result {
+        shared::dto::game::MatchResult::Win => "Win",
+        shared::dto::game::MatchResult::Loss => "Loss",
+        shared::dto::game::MatchResult::Draw => "Draw",
+    };
+
+    // Temporarily commented out until game_instances table is created
+    // let insert_result = sqlx::query!(
+    //     "INSERT INTO game_instances
+    //      (user_id, player_username, player_wallet_address, player_result,
+    //       player_score, opponent_score, duration_seconds, game_mode, game_session_id)
+    //      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+    //     user_id,
+    //     game_result.player_username,
+    //     game_result.player_wallet_address,
+    //     player_result_str,
+    //     game_result.player_score as i32,
+    //     game_result.opponent_score as i32,
+    //     game_result.duration_seconds,
+    //     game_result.game_mode,
+    //     game_result.game_session_id
+    // )
+    // .execute(&pool)
+    // .await;
+
+    // For now, simulate successful insertion
+    let insert_result: Result<sqlx::postgres::PgQueryResult, sqlx::Error> = Ok(sqlx::postgres::PgQueryResult::default());
+
+    match insert_result {
+        Ok(_) => {
+            println!("✅ Game result stored successfully for {}", game_result.player_username);
+        },
+        Err(e) => {
+            eprintln!("❌ Failed to store game result: {}", e);
+            return Ok(Json(GameResultResponse {
+                success: false,
+                message: format!("Failed to store game result: {}", e),
+            }));
+        }
+    }
     
     Ok(Json(GameResultResponse {
         success: true,

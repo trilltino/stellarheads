@@ -2,7 +2,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use tower_http::cors::CorsLayer;
+use tower_http::{cors::CorsLayer, services::ServeDir};
 use std::net::SocketAddr;
 
 use backend::database::connection::create_pool;
@@ -22,12 +22,17 @@ async fn main() {
         .expect("Failed to create database connection pool");
 
     let app = Router::new()
+        // API routes
         .route("/join", post(create_join_transaction))
         .route("/check-joined", get(check_player_joined))
         .route("/submit-signed-transaction", post(submit_signed_transaction))
         .route("/api/guest", post(register_guest))
         .route("/api/game/result", post(submit_game_result))
         .route("/api/game/stats", get(get_player_stats))
+        // Serve game WASM files at /game
+        .nest_service("/game", ServeDir::new("../game/dist"))
+        // Serve frontend files (should be last to catch all other routes)
+        .fallback_service(ServeDir::new("../yew-frontend/dist"))
         .layer(CorsLayer::permissive())
         .with_state(pool);
 

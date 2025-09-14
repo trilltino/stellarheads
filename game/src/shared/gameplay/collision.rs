@@ -5,10 +5,6 @@ use crate::shared::scoring::{GoalScored, GoalTeam};
 use crate::shared::audio::music_system::PlayKickSound;
 use super::{Ball, Goal, Player};
 
-// ================= Goal Detection Components =================
-// Goal components are now defined in goals.rs
-
-// ================= Collision Layers =================
 
 #[derive(Copy, Clone)]
 pub struct CollisionLayers;
@@ -20,7 +16,6 @@ impl CollisionLayers {
     pub const GROUND: u32 = 1 << 3;
 }
 
-// ================= Ball-Player Collision System =================
 
 pub fn ball_kick_collision_system(
     mut collision_events: EventReader<CollisionStarted>,
@@ -32,7 +27,6 @@ pub fn ball_kick_collision_system(
         let entity_a = collision.0;
         let entity_b = collision.1;
 
-        // Check if this is a ball-player collision
         let is_ball_player_collision =
             (balls.contains(entity_a) && players.contains(entity_b)) ||
             (balls.contains(entity_b) && players.contains(entity_a));
@@ -44,7 +38,6 @@ pub fn ball_kick_collision_system(
     }
 }
 
-// ================= Goal Detection System =================
 
 pub fn score_on_goal_collision(
     mut collision_events: EventReader<CollisionStarted>,
@@ -77,12 +70,23 @@ pub fn score_on_goal_collision(
     for collision in collision_events.read() {
         let entity_a = collision.0;
         let entity_b = collision.1;
-        
-        println!("🔍 Collision: {:?} <-> {:?}", entity_a, entity_b);
+
+        // Get component details for debugging
+        let _name_a = "Entity A";
+        let _name_b = "Entity B";
+
+        println!("🔍 COLLISION EVENT: {:?} <-> {:?}", entity_a, entity_b);
         println!("   A: ball={}, goal={}", balls.contains(entity_a), goals.contains(entity_a));
         println!("   B: ball={}, goal={}", balls.contains(entity_b), goals.contains(entity_b));
 
-        // Determine which entity is the ball and which is the goal
+        // Check if either entity has the Ball component AND either has Goal component
+        if balls.contains(entity_a) || balls.contains(entity_b) {
+            println!("   🏀 BALL DETECTED in collision!");
+        }
+        if goals.contains(entity_a) || goals.contains(entity_b) {
+            println!("   🥅 GOAL DETECTED in collision!");
+        }
+
         let (ball_entity, goal_entity) = if balls.contains(entity_a) && goals.contains(entity_b) {
             println!("   ✅ BALL-GOAL MATCH: A=ball, B=goal");
             (entity_a, entity_b)
@@ -91,22 +95,19 @@ pub fn score_on_goal_collision(
             (entity_b, entity_a)
         } else {
             println!("   ❌ Not a ball-goal collision");
-            continue; // Not a ball-goal collision
+            continue; 
         };
 
-        // Process the goal collision
         if let Ok((goal, goal_transform, _)) = goals.get(goal_entity) {
             println!("GOAL COLLISION DETECTED! Ball hit {:?} goal sensor at {:?}", goal.team, goal_transform.translation);
             
-            // The team that scores is opposite to the goal's team
             let scoring_team = match goal.team {
-                GoalTeam::Left => GoalTeam::Right,   // Right team scores on left goal
-                GoalTeam::Right => GoalTeam::Left,   // Left team scores on right goal
+                GoalTeam::Left => GoalTeam::Right,   
+                GoalTeam::Right => GoalTeam::Left,  
             };
 
             let goal_position = goal_transform.translation;
 
-            // Send the goal scored event
             println!("📤 WRITING GoalScored event for {:?} team!", scoring_team);
             score_events.write(GoalScored {
                 goal_position,
@@ -114,16 +115,13 @@ pub fn score_on_goal_collision(
             });
             println!("✅ GoalScored event written successfully!");
 
-            // Apply a velocity nudge to prevent ball from getting stuck
             if let Ok(mut velocity) = ball_velocities.get_mut(ball_entity) {
                 let nudge_force = 150.0;
                 match goal.team {
                     GoalTeam::Left => {
-                        // Push ball to the right (away from left goal)
                         velocity.x = velocity.x.abs().max(nudge_force);
                     }
                     GoalTeam::Right => {
-                        // Push ball to the left (away from right goal)
                         velocity.x = -velocity.x.abs().max(nudge_force);
                     }
                 }
@@ -137,13 +135,64 @@ pub fn score_on_goal_collision(
     }
 }
 
-// ================= Goal Sensor Spawning =================
 
-// Goal sensors are now spawned directly in goals.rs as part of each goal
+// BACKUP GOAL DETECTION: Position-based system that doesn't rely on collision events
+pub fn position_based_goal_detection(
+    balls: Query<(Entity, &Transform), With<Ball>>,
+    _goals: Query<(&Goal, &Transform), With<Goal>>,
+    mut score_events: EventWriter<GoalScored>,
+    mut ball_velocities: Query<&mut LinearVelocity, With<Ball>>,
+    mut last_ball_positions: Local<std::collections::HashMap<Entity, Vec3>>,
+) {
+    let screen_width = 1366.0;
+    let goal_x_threshold = (screen_width / 2.0) - 100.0; // Same as goal positions
+    let ground_top = -350.0 + 25.0; // Ground level + half height
+    let goal_height = 120.0;
+    let goal_bottom = ground_top;
+    let goal_top = ground_top + goal_height;
 
-// Dead code removed - was not being used
+    for (ball_entity, ball_transform) in balls.iter() {
+        let ball_pos = ball_transform.translation;
+        let last_pos = last_ball_positions.get(&ball_entity).copied().unwrap_or(ball_pos);
 
-// ================= Collision Debug System =================
+        // Check if ball is within goal height range
+        if ball_pos.y >= goal_bottom && ball_pos.y <= goal_top {
+            // Check for left goal (ball crosses left goal line from right to left)
+            if last_pos.x > -goal_x_threshold && ball_pos.x <= -goal_x_threshold {
+                println!("🚨 POSITION-BASED GOAL DETECTION: LEFT GOAL!");
+                println!("   Ball moved from ({}, {}) to ({}, {})", last_pos.x, last_pos.y, ball_pos.x, ball_pos.y);
+
+                score_events.write(GoalScored {
+                    goal_position: Vec3::new(-goal_x_threshold, ball_pos.y, 0.0),
+                    scoring_team: GoalTeam::Right, // Right team scores on left goal
+                });
+
+                // Bounce ball back
+                if let Ok(mut velocity) = ball_velocities.get_mut(ball_entity) {
+                    velocity.x = velocity.x.abs().max(150.0);
+                }
+            }
+            // Check for right goal (ball crosses right goal line from left to right)
+            else if last_pos.x < goal_x_threshold && ball_pos.x >= goal_x_threshold {
+                println!("🚨 POSITION-BASED GOAL DETECTION: RIGHT GOAL!");
+                println!("   Ball moved from ({}, {}) to ({}, {})", last_pos.x, last_pos.y, ball_pos.x, ball_pos.y);
+
+                score_events.write(GoalScored {
+                    goal_position: Vec3::new(goal_x_threshold, ball_pos.y, 0.0),
+                    scoring_team: GoalTeam::Left, // Left team scores on right goal
+                });
+
+                // Bounce ball back
+                if let Ok(mut velocity) = ball_velocities.get_mut(ball_entity) {
+                    velocity.x = -velocity.x.abs().max(150.0);
+                }
+            }
+        }
+
+        // Update last position
+        last_ball_positions.insert(ball_entity, ball_pos);
+    }
+}
 
 fn debug_collisions(
     mut collision_events: EventReader<CollisionStarted>,
@@ -153,7 +202,6 @@ fn debug_collisions(
 ) {
     let collision_count = collision_events.len();
     
-    // Debug frame logging - remove static mut which causes undefined behavior
     
     if collision_count > 0 {
         println!("🔔 COLLISION EVENTS: {} events detected!", collision_count);
@@ -168,7 +216,6 @@ fn debug_collisions(
         
         println!("💥 COLLISION: {} <-> {}", name_a, name_b);
         
-        // Special logging for ball-goal collisions
         let is_ball_goal = (balls.contains(entity_a) && goals.contains(entity_b)) || 
                           (balls.contains(entity_b) && goals.contains(entity_a));
         
@@ -177,8 +224,6 @@ fn debug_collisions(
         }
     }
 }
-
-// ================= Collision Plugin =================
 
 pub struct CollisionPlugin;
 
@@ -193,9 +238,10 @@ impl Plugin for CollisionPlugin {
             .add_systems(
                 Update,
                 (
-                    score_on_goal_collision.run_if(in_state(AppState::InGame)), // Only in InGame state
-                    ball_kick_collision_system.run_if(in_state(AppState::InGame)), // Ball kick detection
-                    debug_collisions, // Debug runs always
+                    score_on_goal_collision.run_if(in_state(AppState::InGame)),
+                    position_based_goal_detection.run_if(in_state(AppState::InGame)), // BACKUP SYSTEM
+                    ball_kick_collision_system.run_if(in_state(AppState::InGame)),
+                    debug_collisions,
                 ),
             );
     }

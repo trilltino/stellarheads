@@ -48,7 +48,16 @@ pub async fn create_join_transaction(
         .unwrap_or_else(|_| "CDDG3FABIMQ2STFKNXJXDYOBU6U37G2JSD4DSF4AM4YHAEIYCC4WDNCI".to_string());
 
     // Use testnet for development
-    let client = SorobanJoinClient::new(contract_address, true);
+    let client = match SorobanJoinClient::new(contract_address, true) {
+        Ok(c) => c,
+        Err(e) => {
+            let error_response = serde_json::json!({
+                "error": "Failed to create Soroban client",
+                "details": e.to_string()
+            });
+            return Err((StatusCode::INTERNAL_SERVER_ERROR, Json(error_response)));
+        }
+    };
 
     // First check if already joined
     let already_joined = match client.has_joined(&req.player_address).await {
@@ -96,7 +105,16 @@ pub async fn check_player_joined(
     let contract_address = std::env::var("JOIN_CONTRACT_ADDRESS")
         .unwrap_or_else(|_| "CDDG3FABIMQ2STFKNXJXDYOBU6U37G2JSD4DSF4AM4YHAEIYCC4WDNCI".to_string());
 
-    let client = SorobanJoinClient::new(contract_address, true);
+    let client = match SorobanJoinClient::new(contract_address, true) {
+        Ok(c) => c,
+        Err(e) => {
+            let error_response = serde_json::json!({
+                "error": "Failed to create Soroban client",
+                "details": e.to_string()
+            });
+            return Err((StatusCode::INTERNAL_SERVER_ERROR, Json(error_response)));
+        }
+    };
 
     match client.has_joined(&params.player_address).await {
         Ok(has_joined) => {
@@ -130,7 +148,16 @@ pub async fn submit_signed_transaction(
     let contract_address = std::env::var("JOIN_CONTRACT_ADDRESS")
         .unwrap_or_else(|_| "CDDG3FABIMQ2STFKNXJXDYOBU6U37G2JSD4DSF4AM4YHAEIYCC4WDNCI".to_string());
 
-    let client = SorobanJoinClient::new(contract_address, true);
+    let client = match SorobanJoinClient::new(contract_address, true) {
+        Ok(c) => c,
+        Err(e) => {
+            let error_response = serde_json::json!({
+                "error": "Failed to create Soroban client",
+                "details": e.to_string()
+            });
+            return Err((StatusCode::INTERNAL_SERVER_ERROR, Json(error_response)));
+        }
+    };
     
     // Submit the signed transaction
     match client.submit_transaction(&req.signed_xdr).await {
@@ -180,7 +207,16 @@ pub async fn get_joined_players(
     let contract_address = std::env::var("JOIN_CONTRACT_ADDRESS")
         .unwrap_or_else(|_| "CDDG3FABIMQ2STFKNXJXDYOBU6U37G2JSD4DSF4AM4YHAEIYCC4WDNCI".to_string());
 
-    let client = SorobanJoinClient::new(contract_address, true);
+    let client = match SorobanJoinClient::new(contract_address, true) {
+        Ok(c) => c,
+        Err(e) => {
+            let error_response = serde_json::json!({
+                "error": "Failed to create Soroban client",
+                "details": e.to_string()
+            });
+            return Err((StatusCode::INTERNAL_SERVER_ERROR, Json(error_response)));
+        }
+    };
 
     match client.get_joined().await {
         Ok(joined_addresses) => {

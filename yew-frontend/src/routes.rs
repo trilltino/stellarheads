@@ -8,8 +8,8 @@ pub enum Route {
     #[at("/")]
     Home,
 
-    #[at("/game")]
-    Game,
+    #[at("/setup")]
+    Setup,
 
     #[not_found]
     #[at("/404")]
@@ -19,8 +19,8 @@ pub enum Route {
 pub fn switch(routes: Route) -> Html {
     match routes {
         Route::Home => html! { <LoginPage /> },
-        Route::Game => html! { <GamePage /> },
-        Route::NotFound => html! { 
+        Route::Setup => html! { <GamePage /> },
+        Route::NotFound => html! {
             <div class="not-found">
                 <h1>{"404 - Page Not Found"}</h1>
                 <p>{"The page you're looking for doesn't exist."}</p>

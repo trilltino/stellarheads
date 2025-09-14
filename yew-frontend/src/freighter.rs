@@ -33,20 +33,17 @@ impl std::error::Error for FreighterError {}
 
 impl From<JsValue> for FreighterError {
     fn from(js_val: JsValue) -> Self {
-        // Try to extract error message from various JS error formats
         let error_msg = if let Some(msg) = js_val.as_string() {
             msg
         } else if let Ok(error_obj) = js_val.clone().dyn_into::<js_sys::Error>() {
             error_obj.message().into()
         } else {
-            // Try to convert to string for debugging
             match js_sys::JSON::stringify(&js_val.clone()) {
                 Ok(json_str) => json_str.into(),
-                Err(_) => format!("Unknown JS error: {:?}", js_val)
+                Err(_) => format!("Unknown JS error: {js_val:?}")
             }
         };
 
-        // Check for specific error patterns
         let lower_msg = error_msg.to_lowercase();
         if lower_msg.contains("user") && (lower_msg.contains("reject") || lower_msg.contains("denied") || lower_msg.contains("cancel")) {
             FreighterError::UserRejected
@@ -60,8 +57,6 @@ impl From<JsValue> for FreighterError {
 
 fn get_freighter_api() -> Result<JsValue, FreighterError> {
     let window = window().ok_or(FreighterError::NoWindow)?;
-
-    // Use a safer approach to check for freighterApi
     match Reflect::get(window.as_ref(), &JsValue::from_str("freighterApi")) {
         Ok(api) => {
             if api.is_undefined() || api.is_null() {
@@ -86,11 +81,8 @@ pub fn is_freighter_available() -> bool {
 pub async fn connect_wallet() -> Result<String, FreighterError> {
     web_sys::console::log_1(&JsValue::from_str("🚀 Starting Freighter connection..."));
     let api = get_freighter_api()?;
-
-    // Add timeout to prevent infinite hang
-    let timeout_duration = std::time::Duration::from_secs(30);
+    let _timeout_duration = std::time::Duration::from_secs(30);
     web_sys::console::log_1(&JsValue::from_str(&format!("⏱️  Setting 30-second timeout for wallet connection")));
-
     web_sys::console::log_1(&JsValue::from_str("Requesting access..."));
 
     let request_access_method = Reflect::get(&api, &JsValue::from_str("requestAccess"))?;
