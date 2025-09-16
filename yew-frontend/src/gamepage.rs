@@ -43,18 +43,13 @@ pub fn game_page() -> Html {
         });
     }
 
-    // ===== Auto-redirect to game after wallet connection =====
+    // ===== Auto-set ready state after wallet connection =====
     {
         let wallet_address = wallet_address.clone();
 
         use_effect_with(wallet_address.clone(), move |wallet_addr| {
             if let Some(_) = wallet_addr.as_ref() {
-                console::log_1(&"🎮 Wallet connected, redirecting to game...".into());
-
-                // Redirect to backend-served game (bypasses frontend routing)
-                if let Some(window) = window() {
-                    let _ = window.location().set_href("/game");
-                }
+                console::log_1(&"🎮 Wallet connected, ready for game...".into());
             }
         });
     }
@@ -146,12 +141,220 @@ pub fn game_page() -> Html {
         };
     }
 
-    // This will never be reached since we redirect immediately after wallet connection
-    // But keeping it for safety
+    // Wallet connected - show game ready screen
     html! {
         <div class="setup-container">
-            <h1>{"🌟 Stellar Heads"}</h1>
-            <p>{"Redirecting to game..."}</p>
+            <div class="game-ready-card">
+                <div class="success-animation">
+                    <div class="success-circle">
+                        <div class="checkmark">{"✓"}</div>
+                    </div>
+                </div>
+
+                <h1 class="game-title">{"🌟 Stellar Heads"}</h1>
+                <h2 class="ready-title">{"Ready to Play!"}</h2>
+
+                <div class="player-info">
+                    <div class="info-row">
+                        <span class="label">{"Player:"}</span>
+                        <span class="value">{(*username).clone()}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">{"Wallet:"}</span>
+                        <span class="value">{
+                            if let Some(addr) = wallet_address.as_ref() {
+                                format!("{}...{}", &addr[0..4], &addr[addr.len()-4..])
+                            } else {
+                                "Unknown".to_string()
+                            }
+                        }</span>
+                    </div>
+                </div>
+
+                <div class="launch-options">
+                    <div class="launch-method">
+                        <h3>{"Launch Native Game"}</h3>
+                        <p>{"Run the game locally for the best performance"}</p>
+                        <div class="code-block">
+                            <code>{"cargo run --bin stellar_heads"}</code>
+                        </div>
+                        <small>{"Run this command in your game directory"}</small>
+                    </div>
+                </div>
+
+                <div class="instructions">
+                    <h4>{"Game Controls:"}</h4>
+                    <div class="controls">
+                        <span>{"A/D or ←/→ - Move"}</span>
+                        <span>{"Space - Jump"}</span>
+                        <span>{"X - Kick Ball"}</span>
+                        <span>{"R - Reset Game"}</span>
+                    </div>
+                </div>
+            </div>
+
+            <style>
+                {r#"
+                .setup-container {
+                    min-height: 100vh;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 2rem;
+                    background: linear-gradient(135deg, #0d1117 0%, #1a1a2e 50%, #16213e 100%);
+                }
+
+                .game-ready-card {
+                    background: rgba(255, 255, 255, 0.05);
+                    backdrop-filter: blur(20px);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    border-radius: 24px;
+                    padding: 3rem;
+                    max-width: 600px;
+                    text-align: center;
+                    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+                }
+
+                .success-animation {
+                    margin-bottom: 2rem;
+                }
+
+                .success-circle {
+                    width: 80px;
+                    height: 80px;
+                    border-radius: 50%;
+                    background: linear-gradient(135deg, #10b981, #059669);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    margin: 0 auto;
+                    animation: success-bounce 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+                }
+
+                @keyframes success-bounce {
+                    0% { transform: scale(0); }
+                    50% { transform: scale(1.2); }
+                    100% { transform: scale(1); }
+                }
+
+                .checkmark {
+                    font-size: 2rem;
+                    color: white;
+                    font-weight: bold;
+                }
+
+                .game-title {
+                    font-size: 2.5rem;
+                    font-weight: 700;
+                    background: linear-gradient(135deg, #4f46e5, #06b6d4, #8b5cf6);
+                    background-size: 200% 200%;
+                    -webkit-background-clip: text;
+                    -webkit-text-fill-color: transparent;
+                    animation: gradient-shift 3s ease-in-out infinite;
+                    margin-bottom: 0.5rem;
+                }
+
+                @keyframes gradient-shift {
+                    0%, 100% { background-position: 0% 50%; }
+                    50% { background-position: 100% 50%; }
+                }
+
+                .ready-title {
+                    color: #10b981;
+                    font-size: 1.8rem;
+                    margin-bottom: 2rem;
+                }
+
+                .player-info {
+                    background: rgba(255, 255, 255, 0.05);
+                    border-radius: 16px;
+                    padding: 1.5rem;
+                    margin-bottom: 2rem;
+                }
+
+                .info-row {
+                    display: flex;
+                    justify-content: space-between;
+                    margin-bottom: 0.5rem;
+                }
+
+                .info-row:last-child {
+                    margin-bottom: 0;
+                }
+
+                .label {
+                    color: rgba(255, 255, 255, 0.7);
+                    font-weight: 500;
+                }
+
+                .value {
+                    color: #06b6d4;
+                    font-weight: 600;
+                }
+
+                .launch-options {
+                    margin-bottom: 2rem;
+                }
+
+                .launch-method {
+                    background: rgba(255, 255, 255, 0.05);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    border-radius: 16px;
+                    padding: 2rem;
+                    text-align: center;
+                }
+
+                .launch-method h3 {
+                    color: #4f46e5;
+                    margin-bottom: 0.5rem;
+                }
+
+                .launch-method p {
+                    color: rgba(255, 255, 255, 0.7);
+                    margin-bottom: 1rem;
+                }
+
+                .code-block {
+                    background: rgba(0, 0, 0, 0.3);
+                    border: 1px solid rgba(255, 255, 255, 0.2);
+                    border-radius: 8px;
+                    padding: 1rem;
+                    margin: 1rem 0;
+                    font-family: 'Monaco', 'Consolas', monospace;
+                }
+
+                .code-block code {
+                    color: #06b6d4;
+                    font-size: 1.1rem;
+                    font-weight: 600;
+                }
+
+                .instructions {
+                    border-top: 1px solid rgba(255, 255, 255, 0.1);
+                    padding-top: 1.5rem;
+                }
+
+                .instructions h4 {
+                    color: rgba(255, 255, 255, 0.9);
+                    margin-bottom: 1rem;
+                }
+
+                .controls {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                    gap: 0.5rem;
+                    font-family: 'Monaco', 'Consolas', monospace;
+                    font-size: 0.9rem;
+                }
+
+                .controls span {
+                    background: rgba(255, 255, 255, 0.05);
+                    padding: 0.5rem 1rem;
+                    border-radius: 8px;
+                    color: rgba(255, 255, 255, 0.8);
+                }
+                "#}
+            </style>
         </div>
     }
 }

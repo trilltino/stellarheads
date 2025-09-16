@@ -22,7 +22,7 @@ pub fn setup_goals(mut commands: Commands) {
     
 
     let screen_width = 1366.0;
-    let goal_x_offset = (screen_width / 2.0) - 100.0; 
+    let goal_x_offset = (screen_width / 2.0) - 50.0; 
     spawn_soccer_goal(&mut commands, -goal_x_offset, GoalTeam::Left, ground_top, goal_width, goal_height, post_thickness, net_thickness, goal_depth);
     spawn_soccer_goal(&mut commands, goal_x_offset, GoalTeam::Right, ground_top, goal_width, goal_height, post_thickness, net_thickness, goal_depth); 
 }
@@ -41,12 +41,12 @@ fn spawn_soccer_goal(
 ) {
     let goal_center_y = ground_top + (goal_height / 2.0);
 
-    // 1. VISUAL GOAL POSTS (minimal collision, mainly for visual boundaries)
+    // Invisible goal posts for collision (background shows visual goals)
     let post_half_height = goal_height / 2.0;
 
-    // Left post (top half)
+    // Left post (invisible collision)
     commands.spawn((
-        Sprite::from_color(Color::WHITE, Vec2::new(post_thickness, post_half_height)),
+        Sprite::from_color(Color::srgba(1.0, 1.0, 1.0, 0.0), Vec2::new(post_thickness, post_half_height)),
         Transform::from_xyz(x_position, ground_top + (goal_height * 0.75), 0.0),
         RigidBody::Static,
         Collider::rectangle(post_thickness / 2.0, post_half_height / 2.0),
@@ -58,9 +58,9 @@ fn spawn_soccer_goal(
         Name::new("Goal Post Top"),
     ));
 
-    // Crossbar
+    // Invisible crossbar
     commands.spawn((
-        Sprite::from_color(Color::WHITE, Vec2::new(goal_width, post_thickness)),
+        Sprite::from_color(Color::srgba(1.0, 1.0, 1.0, 0.0), Vec2::new(goal_width, post_thickness)),
         Transform::from_xyz(x_position, ground_top + goal_height, 0.0),
         RigidBody::Static,
         Collider::rectangle(goal_width / 2.0, post_thickness / 2.0),
@@ -74,8 +74,8 @@ fn spawn_soccer_goal(
 
     // 2. GOAL LINE SENSOR (spans entire goal width at the goal line)
     let goal_entity = commands.spawn((
-        // Visual indicator (semi-transparent red line at goal line)
-        Sprite::from_color(Color::srgba(1.0, 0.0, 0.0, 0.5), Vec2::new(post_thickness, goal_height)),
+        // Invisible goal line sensor (background shows visual goals)
+        Sprite::from_color(Color::srgba(1.0, 0.0, 0.0, 0.0), Vec2::new(post_thickness, goal_height)),
         Transform::from_xyz(x_position, goal_center_y, 0.0),
         RigidBody::Static,
         // Wide sensor covering full goal mouth

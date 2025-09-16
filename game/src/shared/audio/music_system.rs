@@ -8,20 +8,38 @@ pub struct GameAudio {
     pub kick_sound: Handle<AudioSource>,
     pub startgame_sound: Handle<AudioSource>,
     pub endgame_sound: Handle<AudioSource>,
+    pub menu_music: Handle<AudioSource>,
     pub gamesong: Handle<AudioSource>,
     pub gamesong2: Handle<AudioSource>,
+    pub gamesong3: Handle<AudioSource>,
+    pub gamesong4: Handle<AudioSource>,
 }
 
 #[derive(Resource, Default)]
 pub struct MusicState {
-    pub current_track: usize, // 0 for gamesong, 1 for gamesong2
+    pub current_track: usize, // 0-3 for gamesong1-4
     pub current_entity: Option<Entity>,
+}
+
+impl GameAudio {
+    pub fn get_track(&self, track_index: usize) -> Handle<AudioSource> {
+        match track_index {
+            0 => self.gamesong.clone(),
+            1 => self.gamesong2.clone(),
+            2 => self.gamesong3.clone(),
+            3 => self.gamesong4.clone(),
+            _ => self.gamesong.clone(), // fallback to first track
+        }
+    }
 }
 
 
 
 #[derive(Component)]
 pub struct BackgroundMusic;
+
+#[derive(Component)]
+pub struct MenuMusic;
 
 #[derive(Component)]
 pub struct SoundEffect;
@@ -50,8 +68,11 @@ pub fn setup_audio_system(
         kick_sound: asset_server.load("sounds/effects/kick.ogg"),
         startgame_sound: asset_server.load("sounds/effects/startgame.ogg"),
         endgame_sound: asset_server.load("sounds/effects/endgame.ogg"),
+        menu_music: asset_server.load("sounds/menu_music.ogg"),
         gamesong: asset_server.load("sounds/gamsong.ogg"),
         gamesong2: asset_server.load("sounds/gamesong2.ogg"),
+        gamesong3: asset_server.load("sounds/gamesong3.mp3"),
+        gamesong4: asset_server.load("sounds/gamesong4.mp3"),
     };
 
     commands.insert_resource(game_audio);
@@ -76,11 +97,7 @@ pub fn start_background_music(
 
     music_state.current_track = 0;
 
-    let track_handle = if music_state.current_track == 0 {
-        game_audio.gamesong.clone()
-    } else {
-        game_audio.gamesong2.clone()
-    };
+    let track_handle = game_audio.get_track(music_state.current_track);
 
     let music_entity = commands.spawn((
         AudioPlayer(track_handle),
@@ -116,13 +133,9 @@ pub fn handle_music_loop(
                 commands.entity(entity).despawn();
             }
 
-            music_state.current_track = 1 - music_state.current_track;
+            music_state.current_track = (music_state.current_track + 1) % 4;
 
-            let track_handle = if music_state.current_track == 0 {
-                game_audio.gamesong.clone()
-            } else {
-                game_audio.gamesong2.clone()
-            };
+            let track_handle = game_audio.get_track(music_state.current_track);
 
             let new_entity = commands.spawn((
                 AudioPlayer(track_handle),
@@ -138,6 +151,72 @@ pub fn handle_music_loop(
 }
 
 
+
+pub fn start_menu_music(
+    mut commands: Commands,
+    game_audio: Option<Res<GameAudio>>,
+    existing_music: Query<Entity, Or<(With<BackgroundMusic>, With<MenuMusic>)>>,
+) {
+    println!("Starting menu music for LaunchMenu state...");
+
+    let Some(game_audio) = game_audio else {
+        println!("⚠️ GameAudio resource not yet loaded, skipping menu music");
+        return;
+    };
+
+    for entity in existing_music.iter() {
+        commands.entity(entity).despawn();
+    }
+
+    commands.spawn((
+        AudioPlayer(game_audio.menu_music.clone()),
+        PlaybackSettings::LOOP,
+        MenuMusic,
+    ));
+
+    println!("🎵 Started menu music");
+}
+
+pub fn ensure_menu_music_playing(
+    mut commands: Commands,
+    game_audio: Option<Res<GameAudio>>,
+    existing_menu_music: Query<Entity, With<MenuMusic>>,
+    app_state: Res<State<AppState>>,
+) {
+    // Only run this for LaunchMenu state
+    if !matches!(app_state.get(), AppState::LaunchMenu) {
+        return;
+    }
+
+    // Check if menu music is already playing
+    if !existing_menu_music.is_empty() {
+        return;
+    }
+
+    // Check if GameAudio is loaded
+    let Some(game_audio) = game_audio else {
+        return; // Audio not loaded yet
+    };
+
+    // Start menu music
+    commands.spawn((
+        AudioPlayer(game_audio.menu_music.clone()),
+        PlaybackSettings::LOOP,
+        MenuMusic,
+    ));
+
+    println!("🎵 Started menu music (delayed start)");
+}
+
+pub fn stop_menu_music(
+    mut commands: Commands,
+    existing_menu_music: Query<Entity, With<MenuMusic>>,
+) {
+    for entity in existing_menu_music.iter() {
+        commands.entity(entity).despawn();
+    }
+    println!("🔇 Stopped menu music");
+}
 
 pub fn stop_audio_system(
     mut commands: Commands,
@@ -216,6 +295,7 @@ impl Plugin for GameAudioPlugin {
             .add_event::<PlayStartGameSound>()
             .add_event::<PlayEndGameSound>()
             .add_systems(Startup, setup_audio_system)
+            .add_systems(OnExit(AppState::LaunchMenu), stop_menu_music)
             .add_systems(OnEnter(AppState::InGame), start_background_music)
             .add_systems(OnExit(AppState::InGame), stop_audio_system)
             .add_systems(Update, (
@@ -223,6 +303,7 @@ impl Plugin for GameAudioPlugin {
                 play_start_game_sound,
                 play_end_game_sound,
                 handle_music_loop,
+                ensure_menu_music_playing,
             ));
 
         println!("✅ Audio plugin registered!");

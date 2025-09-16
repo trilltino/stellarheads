@@ -5,14 +5,11 @@
     <title>Stellar Heads</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <base href="/" />
-
-    <!-- Load Freighter API from CDN - this is the missing piece! -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/stellar-freighter-api/4.1.0/index.min.js"></script>
-
     
 <script type="module">
-import init, * as bindings from '/yew-scaffold-9958d2fc8d2770e0.js';
-const wasm = await init({ module_or_path: '/yew-scaffold-9958d2fc8d2770e0_bg.wasm' });
+import init, * as bindings from '/yew-scaffold-6a538c8753c6d2c3.js';
+const wasm = await init({ module_or_path: '/yew-scaffold-6a538c8753c6d2c3_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -21,6 +18,8 @@ window.wasmBindings = bindings;
 dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
 
 </script>
+    
+    
     <style>
         * {
             margin: 0;
@@ -81,12 +80,12 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
             background: #3730a3;
         }
     </style>
-<link rel="modulepreload" href="/yew-scaffold-9958d2fc8d2770e0.js" crossorigin="anonymous" integrity="sha384-symrPzUHAg5Dibs3ONJmnZ+E4hv0yoFQ2ITjT0oFPdr6f2v4SQViarQVFHzcTr3C"><link rel="preload" href="/yew-scaffold-9958d2fc8d2770e0_bg.wasm" crossorigin="anonymous" integrity="sha384-Bc0h9zFvQgHdwFPMBXaPcq0YPhvdIKJZvlm1XdzHfoFTxS8MkNyvfrZH/OlT6ksl" as="fetch" type="application/wasm"></head>
+<link rel="modulepreload" href="/yew-scaffold-6a538c8753c6d2c3.js" crossorigin="anonymous" integrity="sha384-zDudsveBBlPtdYTGzp78kh4J6qFAGRRGLgADItq8CpEZyg8MgNC9WdyZQVcofcuC"><link rel="preload" href="/yew-scaffold-6a538c8753c6d2c3_bg.wasm" crossorigin="anonymous" integrity="sha384-Ty5vwmNTPRIQdLZ0HOCOp6tVJF2VV5aSzjkbqui3/u2+Ld3TGELBCBuZs6FAj0Cb" as="fetch" type="application/wasm"></head>
+
+
 <body>
     <script type="module">
-        // Wait for Freighter extension to inject its API
         window.addEventListener('load', async () => {
-            // Give Freighter time to inject its API
             setTimeout(() => {
                 if (window.freighterApi) {
                     console.log('✅ Freighter API detected', Object.keys(window.freighterApi));

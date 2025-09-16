@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts, EguiPrimaryContextPass};
-use crate::shared::scoring::{Score, GameTimer, ScoreNotifications};
+use crate::shared::scoring::{Score, GameTimer, ScoreNotifications, GoalTeam};
 
 // ================= STATES =================
 
@@ -41,7 +41,7 @@ pub struct SplashImage {
 }
 
 pub fn on_enter_load_splash(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let handle: Handle<Image> = asset_server.load("art/Splash.png");
+    let handle: Handle<Image> = asset_server.load("art/splashscreen.png");
     commands.insert_resource(SplashImage { handle, egui_id: None });
 }
 
@@ -78,7 +78,7 @@ pub fn launch_menu_system(
             // Use screen rect size for full screen splash
             let image = egui::Image::new((id, screen_rect.size()))
                 .fit_to_exact_size(screen_rect.size())
-                .rounding(egui::Rounding::ZERO);
+                .corner_radius(egui::CornerRadius::ZERO);
 
             // paint full screen with no filtering to prevent compression artifacts
             image.paint_at(ui, screen_rect);
@@ -282,14 +282,153 @@ pub fn score_notifications_system(
     }
 }
 
+// ================= GAME OVER UI =================
 
+#[derive(Resource)]
+pub struct MatchResult {
+    pub winner: Option<GoalTeam>,
+    pub final_score: (u32, u32),
+}
+
+pub fn store_match_result(
+    mut commands: Commands,
+    score: Res<Score>,
+    timer: Res<GameTimer>,
+) {
+    // Determine winner
+    let winner = if score.left_team >= 5 {
+        Some(GoalTeam::Left)
+    } else if score.right_team >= 5 {
+        Some(GoalTeam::Right)
+    } else if timer.is_finished {
+        // Time's up, determine by score
+        if score.left_team > score.right_team {
+            Some(GoalTeam::Left)
+        } else if score.right_team > score.left_team {
+            Some(GoalTeam::Right)
+        } else {
+            None // Draw
+        }
+    } else {
+        None
+    };
+
+    commands.insert_resource(MatchResult {
+        winner,
+        final_score: (score.left_team, score.right_team),
+    });
+}
+
+pub fn game_over_ui_system(
+    mut contexts: EguiContexts,
+    mut next_state: ResMut<NextState<AppState>>,
+    mut score: ResMut<Score>,
+    mut timer: ResMut<GameTimer>,
+    match_result: Option<Res<MatchResult>>,
+) {
+    let Ok(ctx) = contexts.ctx_mut() else {
+        return;
+    };
+
+    let result = match match_result {
+        Some(result) => result,
+        None => return,
+    };
+
+    egui::CentralPanel::default().show(ctx, |ui| {
+        let screen_size = ui.available_size();
+
+        ui.vertical_centered(|ui| {
+            ui.add_space(screen_size.y * 0.25);
+
+            // Game Over Title
+            ui.label(
+                egui::RichText::new("🎮 GAME OVER")
+                    .size(48.0)
+                    .color(egui::Color32::GOLD)
+                    .strong(),
+            );
+
+            ui.add_space(30.0);
+
+            // Winner announcement
+            let (winner_text, winner_color) = match &result.winner {
+                Some(GoalTeam::Left) => ("🏆 YOU WIN!", egui::Color32::from_rgb(120, 255, 120)),
+                Some(GoalTeam::Right) => ("😞 YOU LOSE!", egui::Color32::from_rgb(255, 120, 120)),
+                None => ("🤝 DRAW!", egui::Color32::WHITE),
+            };
+
+            ui.label(
+                egui::RichText::new(winner_text)
+                    .size(36.0)
+                    .color(winner_color)
+                    .strong(),
+            );
+
+            ui.add_space(20.0);
+
+            // Final Score
+            ui.label(
+                egui::RichText::new(format!("Final Score: {} - {}", result.final_score.0, result.final_score.1))
+                    .size(24.0)
+                    .color(egui::Color32::WHITE),
+            );
+
+            ui.add_space(40.0);
+
+            // Play Again Button
+            let play_again_button = egui::Button::new(
+                egui::RichText::new("🔄 PLAY AGAIN")
+                    .size(24.0)
+                    .color(egui::Color32::WHITE)
+            )
+            .fill(egui::Color32::from_rgb(34, 139, 34)) // Forest green
+            .min_size(egui::vec2(250.0, 60.0));
+
+            if ui.add(play_again_button).clicked() {
+                // Reset game state
+                score.reset();
+                timer.remaining_time = timer.match_duration;
+                timer.is_finished = false;
+
+                // Return to game
+                next_state.set(AppState::InGame);
+                println!("🔄 Starting new game...");
+            }
+
+            ui.add_space(20.0);
+
+            // Main Menu Button
+            let main_menu_button = egui::Button::new(
+                egui::RichText::new("🏠 MAIN MENU")
+                    .size(20.0)
+                    .color(egui::Color32::WHITE)
+            )
+            .fill(egui::Color32::from_rgb(139, 69, 19)) // Brown
+            .min_size(egui::vec2(200.0, 50.0));
+
+            if ui.add(main_menu_button).clicked() {
+                // Reset game state
+                score.reset();
+                timer.remaining_time = timer.match_duration;
+                timer.is_finished = false;
+
+                // Return to main menu
+                next_state.set(AppState::LaunchMenu);
+                println!("🏠 Returning to main menu...");
+            }
+        });
+    });
+}
 
 pub struct StateUIPlugin;
 impl Plugin for StateUIPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(AppState::LaunchMenu), on_enter_load_splash);
-        app.add_systems(EguiPrimaryContextPass, launch_menu_system.run_if(in_state(AppState::LaunchMenu)));
-        app.add_systems(Update, debug_current_gamemode_state);
+        app.add_systems(OnEnter(AppState::LaunchMenu), on_enter_load_splash)
+           .add_systems(OnEnter(AppState::GameOver), store_match_result)
+           .add_systems(EguiPrimaryContextPass, launch_menu_system.run_if(in_state(AppState::LaunchMenu)))
+           .add_systems(EguiPrimaryContextPass, game_over_ui_system.run_if(in_state(AppState::GameOver)))
+           .add_systems(Update, debug_current_gamemode_state);
     }
 }
 

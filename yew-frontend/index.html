@@ -5,11 +5,10 @@
     <title>Stellar Heads</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <base href="/" />
-
-    <!-- Load Freighter API from CDN - this is the missing piece! -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/stellar-freighter-api/4.1.0/index.min.js"></script>
-
     <link data-trunk rel="rust" data-bin="yew-scaffold" data-wasm-opt="z"/>
+    
+    
     <style>
         * {
             margin: 0;
@@ -71,11 +70,11 @@
         }
     </style>
 </head>
+
+
 <body>
     <script type="module">
-        // Wait for Freighter extension to inject its API
         window.addEventListener('load', async () => {
-            // Give Freighter time to inject its API
             setTimeout(() => {
                 if (window.freighterApi) {
                     console.log('✅ Freighter API detected', Object.keys(window.freighterApi));

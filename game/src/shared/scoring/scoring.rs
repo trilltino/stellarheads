@@ -265,20 +265,24 @@ pub fn game_timer_system(
 pub fn handle_match_finished(
     mut match_events: EventReader<MatchFinished>,
     mut notifications: ResMut<ScoreNotifications>,
-    _next_state: ResMut<NextState<AppState>>,
+    mut next_state: ResMut<NextState<AppState>>,
 ) {
     for event in match_events.read() {
         match &event.winner {
             Some(GoalTeam::Left) => {
-                notifications.notifications.push(ScoreNotification::new("🏆 LEFT TEAM WINS!".to_string(), 5.0));
+                notifications.notifications.push(ScoreNotification::new("🏆 LEFT TEAM WINS!".to_string(), 3.0));
             },
             Some(GoalTeam::Right) => {
-                notifications.notifications.push(ScoreNotification::new("🏆 RIGHT TEAM WINS!".to_string(), 5.0));
+                notifications.notifications.push(ScoreNotification::new("🏆 RIGHT TEAM WINS!".to_string(), 3.0));
             },
             None => {
-                notifications.notifications.push(ScoreNotification::new("🤝 DRAW!".to_string(), 5.0));
+                notifications.notifications.push(ScoreNotification::new("🤝 DRAW!".to_string(), 3.0));
             }
         }
+
+        // Transition to GameOver state after a short delay for notifications
+        next_state.set(AppState::GameOver);
+        println!("🏁 Match finished, transitioning to GameOver state");
     }
 }
 
@@ -325,21 +329,22 @@ pub fn send_game_result_system(
         // Send game result directly to backend via HTTP
         println!("🎮 Sending game result to backend: {:?}", game_result);
 
-        // Spawn async task to submit game result
+        // Spawn task to submit game result
         let game_result_clone = game_result.clone();
-        let task = async move {
-            submit_game_result_to_backend(game_result_clone).await;
-        };
 
         #[cfg(target_arch = "wasm32")]
         {
-            wasm_bindgen_futures::spawn_local(task);
+            wasm_bindgen_futures::spawn_local(async move {
+                submit_game_result_to_backend(game_result_clone).await;
+            });
         }
 
         #[cfg(not(target_arch = "wasm32"))]
         {
-            // For native builds, use tokio spawn
-            tokio::spawn(task);
+            // For native builds, use std::thread::spawn with blocking HTTP
+            std::thread::spawn(move || {
+                submit_game_result_to_backend_blocking(game_result_clone);
+            });
         }
     }
 }
@@ -396,13 +401,21 @@ impl Plugin for ScoringPlugin {
 
 // ================= HTTP Communication =================
 
+// Async version for WASM
+#[cfg(target_arch = "wasm32")]
 async fn submit_game_result_to_backend(game_result: GameResult) {
-    let backend_url = "http://127.0.0.1:3000/api/game/result";
+    let backend_url = "http://127.0.0.1:3000/api/leaderboard/record";
+
+    let request_body = serde_json::json!({
+        "player_address": game_result.player_wallet_address,
+        "username": game_result.player_username,
+        "won": matches!(game_result.player_result, shared::dto::game::MatchResult::Win)
+    });
 
     match reqwest::Client::new()
         .post(backend_url)
         .header("Content-Type", "application/json")
-        .json(&game_result)
+        .json(&request_body)
         .send()
         .await
     {
@@ -417,6 +430,46 @@ async fn submit_game_result_to_backend(game_result: GameResult) {
                 status => {
                     println!("⚠️ Backend returned status {}: {}", status, response.status());
                     if let Ok(text) = response.text().await {
+                        println!("📝 Error response: {}", text);
+                    }
+                }
+            }
+        },
+        Err(e) => {
+            println!("❌ Failed to submit game result: {}", e);
+            println!("🔗 Attempted to connect to: {}", backend_url);
+        }
+    }
+}
+
+// Blocking version for native
+#[cfg(not(target_arch = "wasm32"))]
+fn submit_game_result_to_backend_blocking(game_result: GameResult) {
+    let backend_url = "http://127.0.0.1:3000/api/leaderboard/record";
+
+    let request_body = serde_json::json!({
+        "player_address": game_result.player_wallet_address,
+        "username": game_result.player_username,
+        "won": matches!(game_result.player_result, shared::dto::game::MatchResult::Win)
+    });
+
+    match reqwest::blocking::Client::new()
+        .post(backend_url)
+        .header("Content-Type", "application/json")
+        .json(&request_body)
+        .send()
+    {
+        Ok(response) => {
+            match response.status().as_u16() {
+                200..=299 => {
+                    println!("✅ Game result submitted successfully");
+                    if let Ok(text) = response.text() {
+                        println!("📝 Backend response: {}", text);
+                    }
+                },
+                status => {
+                    println!("⚠️ Backend returned status {}: {}", status, response.status());
+                    if let Ok(text) = response.text() {
                         println!("📝 Error response: {}", text);
                     }
                 }

@@ -84,6 +84,17 @@ impl BallBundle {
     }
 }
 
+fn cleanup_balls(
+    mut commands: Commands,
+    ball_query: Query<Entity, With<Ball>>,
+) {
+    for entity in ball_query.iter() {
+        commands.entity(entity).despawn();
+        println!("🗑️ Despawned ball entity: {:?}", entity);
+    }
+    println!("🧹 All balls cleaned up for new game");
+}
+
 pub fn spawn_ball(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -118,7 +129,7 @@ pub struct BallPlugin;
 impl Plugin for BallPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Ball>()
-            .add_systems(OnEnter(AppState::InGame), spawn_ball);
+            .add_systems(OnEnter(AppState::InGame), (cleanup_balls, spawn_ball).chain());
     }
 }
 

@@ -60,6 +60,8 @@ fn main() {
         .add_plugins(UIPlugin)
         .add_plugins(PlayerPlugin)
         .add_systems(Startup, setup)
+        .add_systems(OnEnter(AppState::InGame), setup_game_background)
+        .add_systems(OnExit(AppState::InGame), cleanup_game_background)
         .run();
 }
 
@@ -70,6 +72,7 @@ fn setup(mut commands: Commands) {
             hdr: true,
             ..default()
         },
+        Transform::from_scale(Vec3::splat(1.5)), // Increase scale to zoom out and fit everything in 1366x768
         Bloom {
             prefilter: bevy::core_pipeline::bloom::BloomPrefilter {
                 threshold: 0.6,
@@ -78,4 +81,32 @@ fn setup(mut commands: Commands) {
             ..default()
         },
     ));
+}
+
+#[derive(Component)]
+struct GameBackground;
+
+fn setup_game_background(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+) {
+    let background_handle = asset_server.load("gamescreen/gamescreen.png");
+
+    commands.spawn((
+        Sprite::from_image(background_handle),
+        Transform::from_xyz(0.0, 0.0, -10.0).with_scale(Vec3::splat(0.67)), // Scale to match camera zoom (1/1.5 = 0.67)
+        GameBackground,
+        Name::new("Game Background"),
+    ));
+
+    println!("🏟️ Game background loaded");
+}
+
+fn cleanup_game_background(
+    mut commands: Commands,
+    background_query: Query<Entity, With<GameBackground>>,
+) {
+    for entity in background_query.iter() {
+        commands.entity(entity).despawn();
+    }
 }

@@ -22,16 +22,16 @@ fn spawn_continuous_field(commands: &mut Commands) {
     let ground_y = -350.0; 
     
     commands.spawn((
-        Sprite::from_color(Color::srgb(0.2, 0.8, 0.2), Vec2::new(field_width, field_height)),
+        Sprite::from_color(Color::srgba(0.2, 0.8, 0.2, 0.0), Vec2::new(field_width, field_height)),
         Transform::from_xyz(0.0, ground_y, 0.0),
         RigidBody::Static,
-        Collider::rectangle(field_width / 2.0, field_height / 2.0), 
+        Collider::rectangle(field_width / 2.0, field_height / 2.0),
         avian2d::prelude::CollisionLayers::new(
             CollisionLayers::GROUND,
             CollisionLayers::BALL | CollisionLayers::PLAYER
         ),
-        Restitution::new(0.1), 
-        Friction::new(0.9),    
+        Restitution::new(0.1),
+        Friction::new(0.9),
         ColliderDensity(1000.0),
         Name::new("Continuous Field"),
     ));
@@ -51,7 +51,7 @@ fn spawn_field_walls(commands: &mut Commands) {
 
     for (&x_pos, &name) in wall_positions.iter().zip(wall_names.iter()) {
         let wall_entity = commands.spawn((
-            Sprite::from_color(Color::srgb(0.8, 0.2, 0.2), Vec2::new(wall_thickness, wall_height)), // Bright red for visibility
+            Sprite::from_color(Color::srgba(0.8, 0.2, 0.2, 0.0), Vec2::new(wall_thickness, wall_height)), // Invisible walls
             Transform::from_xyz(x_pos, 0.0, 0.0),
             RigidBody::Static,
             Collider::rectangle(wall_thickness / 2.0, wall_height / 2.0),

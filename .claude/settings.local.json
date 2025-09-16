@@ -15,7 +15,16 @@
       "Bash(wasm-pack:*)",
       "Bash(trunk:*)",
       "Bash(curl:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(set RUST_BACKTRACE=1)",
+      "Bash(timeout:*)",
+      "Bash(CONTRACT_ADDRESS=\"CDQCZWN3W4DRVGIT23RWZ5GSU5XYDNGGRCOSKQG6ZLD5DWBMEAEKZG6N\" TEST_PLAYER=\"GDR6JKVFYPW4IZRS5UJ7XTM27FBM76DAYDWQXOWQXDJDSGS3RI5DFSJO\" cargo run --bin test_cli)",
+      "Bash(stellar:*)",
+      "Bash(xxd:*)",
+      "Bash(psql:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(net start:*)",
+      "Bash(\"C:\\Program Files\\PostgreSQL\\17\\bin\\psql.exe\" -U postgres -h localhost -c \"\\l\")"
     ],
     "deny": [],
     "ask": []

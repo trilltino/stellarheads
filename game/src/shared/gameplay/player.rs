@@ -7,6 +7,7 @@ use rand::seq::SliceRandom;
 
 type PlayerMovementQuery<'a> = (
     &'a mut LinearVelocity,
+    &'a mut Transform,
     &'a Speed,
     &'a JumpForce,
     &'a IsGrounded,
@@ -21,7 +22,7 @@ type GroundDetectionQuery<'a> = (Entity, &'a mut IsGrounded, &'a Transform);
 type AiMovementQuery<'a> = (
     &'a mut AiPlayer,
     &'a mut LinearVelocity,
-    &'a Transform,
+    &'a mut Transform,
     &'a Speed,
     &'a JumpForce,
     &'a IsGrounded,
@@ -105,7 +106,7 @@ pub struct PlayerBundle {
 }
 
 impl PlayerBundle {
-    pub fn new(radius: f32, texture: Handle<Image>, position: Vec3) -> Self {
+    pub fn new(_radius: f32, texture: Handle<Image>, position: Vec3) -> Self {
         // Standardized player size - much larger for visibility
         let player_size = 80.0; // Increased from radius * 2.0
         let physics_radius = 30.0; // Consistent physics radius for all players
@@ -136,6 +137,17 @@ impl PlayerBundle {
             ),
         }
     }
+}
+
+fn cleanup_players(
+    mut commands: Commands,
+    player_query: Query<Entity, Or<(With<LocalPlayer>, With<AiPlayer>)>>,
+) {
+    for entity in player_query.iter() {
+        commands.entity(entity).despawn();
+        println!("🗑️ Despawned player entity: {:?}", entity);
+    }
+    println!("🧹 All players cleaned up for new game");
 }
 
 fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -193,7 +205,7 @@ fn player_movement_input(
     time: Res<Time>,
     mut q: Query<PlayerMovementQuery, (With<Player>, With<LocalPlayer>)>,
 ) {
-    for (mut velocity, speed, jump_force, is_grounded, mut coyote_time) in &mut q {
+    for (mut velocity, mut transform, speed, jump_force, is_grounded, mut coyote_time) in &mut q {
         if is_grounded.0 {
             coyote_time.was_grounded = true;
             coyote_time.timer.reset();
@@ -207,9 +219,11 @@ fn player_movement_input(
         let mut x_input = 0.0;
         if keys.pressed(KeyCode::KeyA) || keys.pressed(KeyCode::ArrowLeft) {
             x_input -= 1.0;
+            transform.scale.x = -1.0; // Face left
         }
         if keys.pressed(KeyCode::KeyD) || keys.pressed(KeyCode::ArrowRight) {
             x_input += 1.0;
+            transform.scale.x = 1.0; // Face right
         }
         if is_grounded.0 {
             velocity.x = x_input * speed.0;
@@ -221,9 +235,13 @@ fn player_movement_input(
         }
 
         let can_jump = is_grounded.0 || coyote_time.was_grounded;
-        if keys.just_pressed(KeyCode::Space) && can_jump {
-            velocity.y = jump_force.0;
-            coyote_time.was_grounded = false; 
+        if keys.just_pressed(KeyCode::Space) {
+            println!("Space pressed! can_jump: {}, is_grounded: {}, was_grounded: {}", can_jump, is_grounded.0, coyote_time.was_grounded);
+            if can_jump {
+                velocity.y = jump_force.0;
+                coyote_time.was_grounded = false;
+                println!("Jump executed! velocity.y: {}", velocity.y);
+            }
         }
 
         if keys.just_released(KeyCode::Space) && velocity.y > 0.0 {
@@ -332,44 +350,52 @@ fn ai_player_movement(
         return;
     };
 
-    for (mut ai, mut velocity, transform, speed, jump_force, is_grounded) in ai_query.iter_mut() {
+    for (mut ai, mut velocity, mut transform, speed, jump_force, is_grounded) in ai_query.iter_mut() {
         ai.decision_timer.tick(time.delta());
         if ai.decision_timer.just_finished() {
 
             let ai_pos = transform.translation.truncate();
             let ball_pos = ball_transform.translation.truncate();
             let distance_to_ball = ai_pos.distance(ball_pos);
-            
+
             if distance_to_ball < 300.0 {
                 ai.behavior_state = AiBehavior::ChaseBall;
                 ai.current_target = ball_pos;
             } else {
                 ai.behavior_state = AiBehavior::ReturnToPosition;
-                ai.current_target = Vec2::new(400.0, -250.0); 
+                ai.current_target = Vec2::new(400.0, -250.0);
             }
         }
         let ai_pos = transform.translation.truncate();
+        let ball_pos = ball_transform.translation.truncate();
         let direction_to_target = (ai.current_target - ai_pos).normalize_or_zero();
-        
-        let ai_speed = speed.0 * 0.7; 
+
+        // Make AI face the ball
+        let direction_to_ball = (ball_pos - ai_pos).normalize_or_zero();
+        if direction_to_ball.x > 0.1 {
+            transform.scale.x = 1.0; // Face right
+        } else if direction_to_ball.x < -0.1 {
+            transform.scale.x = -1.0; // Face left
+        }
+
+        let ai_speed = speed.0 * 0.7;
         let target_x_velocity = direction_to_target.x * ai_speed;
-        
+
 
         velocity.x = velocity.x.lerp(target_x_velocity, time.delta_secs() * 5.0);
-        
 
-        let ball_pos = ball_transform.translation.truncate();
-        let should_jump = is_grounded.0 
-            && ball_pos.y > ai_pos.y + 50.0 
+
+        let should_jump = is_grounded.0
+            && ball_pos.y > ai_pos.y + 50.0
             && ai_pos.distance(ball_pos) < 100.0;
-            
+
         if should_jump && velocity.y.abs() < 10.0 {
-            velocity.y = jump_force.0 * 0.8; 
+            velocity.y = jump_force.0 * 0.8;
         }
-        
+
 
         if ai_pos.distance(ai.current_target) < 30.0 {
-            velocity.x *= 0.5; 
+            velocity.x *= 0.5;
         }
     }
 }
@@ -413,7 +439,7 @@ pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<PlayerReset>()
-            .add_systems(OnEnter(AppState::InGame), spawn_player)
+            .add_systems(OnEnter(AppState::InGame), (cleanup_players, spawn_player).chain())
             .add_systems(
                 Update,
                 (

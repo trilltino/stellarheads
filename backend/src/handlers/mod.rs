@@ -1,6 +1,6 @@
 pub mod auth;
-pub mod soroban;
-pub mod game;
+pub mod leaderboard;
+pub mod game_results;
 
 use axum::http::StatusCode;
 
