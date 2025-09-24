@@ -1,6 +1,7 @@
 use crate::database::models::GameInstance;
 use crate::database::connection::DbPool;
 use sqlx::{Error as SqlxError};
+use bigdecimal::ToPrimitive;
 
 pub struct GameRepository;
 
@@ -43,7 +44,7 @@ impl GameRepository {
             player_score: row.player_score,
             opponent_score: row.opponent_score,
             duration_seconds: row.duration_seconds,
-            game_mode: row.game_mode,
+            game_mode: row.game_mode.unwrap_or_else(|| "single_player_vs_ai".to_string()),
             created_at: row.created_at,
         })
     }
@@ -83,7 +84,7 @@ impl GameRepository {
                 player_score: row.player_score,
                 opponent_score: row.opponent_score,
                 duration_seconds: row.duration_seconds,
-                game_mode: row.game_mode,
+                game_mode: row.game_mode.unwrap_or_else(|| "single_player_vs_ai".to_string()),
                 created_at: row.created_at,
             })
             .collect())
@@ -116,8 +117,12 @@ impl GameRepository {
             losses: row.losses.unwrap_or(0) as u32,
             draws: row.draws.unwrap_or(0) as u32,
             total_games: row.total_games.unwrap_or(0) as u32,
-            avg_duration: row.avg_duration.unwrap_or(0.0) as f32,
-            avg_score: row.avg_score.unwrap_or(0.0) as f32,
+            avg_duration: row.avg_duration
+                .and_then(|d| d.to_f32())
+                .unwrap_or(0.0),
+            avg_score: row.avg_score
+                .and_then(|d| d.to_f32())
+                .unwrap_or(0.0),
         })
     }
 
@@ -153,7 +158,7 @@ impl GameRepository {
                 player_score: row.player_score,
                 opponent_score: row.opponent_score,
                 duration_seconds: row.duration_seconds,
-                game_mode: row.game_mode,
+                game_mode: row.game_mode.unwrap_or_else(|| "single_player_vs_ai".to_string()),
                 created_at: row.created_at,
             })
             .collect())

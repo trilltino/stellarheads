@@ -1,6 +1,6 @@
 use yew::prelude::*;
 use gloo::storage::{LocalStorage, Storage};
-use web_sys::{console, window};
+use web_sys::console;
 use wasm_bindgen_futures::spawn_local;
 use crate::freighter::{connect_wallet, is_freighter_available};
 use crate::soroban::complete_join_flow;
@@ -54,11 +54,41 @@ pub fn game_page() -> Html {
         });
     }
 
-    // ===== Component mount log =====
-    use_effect(|| {
-        console::log_1(&"GamePage component mounted".into());
-        || console::log_1(&"GamePage component unmounted".into())
-    });
+    // ===== Component mount log and game initialization =====
+    let game_initialized = use_state(|| false);
+
+    {
+        let game_initialized = game_initialized.clone();
+        let wallet_address = wallet_address.clone();
+
+        use_effect_with(wallet_address.clone(), move |wallet_addr| {
+            // Only initialize game when wallet is connected and game hasn't been initialized yet
+            if wallet_addr.is_some() && !*game_initialized {
+                console::log_1(&"GamePage component mounted".into());
+
+                let game_initialized = game_initialized.clone();
+
+                // Load and initialize the game WASM module
+                wasm_bindgen_futures::spawn_local(async move {
+                    // Small delay to ensure canvas is in DOM
+                    gloo::timers::future::sleep(std::time::Duration::from_millis(500)).await;
+
+                    console::log_1(&"Loading Stellar Heads game WASM...".into());
+
+                    // Load the game WASM from the backend
+                    match load_game_wasm().await {
+                        Ok(_) => {
+                            game_initialized.set(true);
+                            console::log_1(&"Game initialization completed successfully".into());
+                        },
+                        Err(e) => {
+                            console::log_1(&format!("Failed to load game: {}", e).into());
+                        }
+                    }
+                });
+            }
+        });
+    }
 
     // ===== Callbacks =====
     let on_manual_connect = {
@@ -141,220 +171,229 @@ pub fn game_page() -> Html {
         };
     }
 
-    // Wallet connected - show game ready screen
+    // Wallet connected - show game
     html! {
-        <div class="setup-container">
-            <div class="game-ready-card">
-                <div class="success-animation">
-                    <div class="success-circle">
-                        <div class="checkmark">{"✓"}</div>
-                    </div>
-                </div>
-
-                <h1 class="game-title">{"🌟 Stellar Heads"}</h1>
-                <h2 class="ready-title">{"Ready to Play!"}</h2>
-
+        <div class="game-container">
+            <div class="game-header">
+                <h1 class="game-title">{"Stellar Heads"}</h1>
                 <div class="player-info">
-                    <div class="info-row">
-                        <span class="label">{"Player:"}</span>
-                        <span class="value">{(*username).clone()}</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="label">{"Wallet:"}</span>
-                        <span class="value">{
-                            if let Some(addr) = wallet_address.as_ref() {
-                                format!("{}...{}", &addr[0..4], &addr[addr.len()-4..])
-                            } else {
-                                "Unknown".to_string()
-                            }
-                        }</span>
-                    </div>
-                </div>
-
-                <div class="launch-options">
-                    <div class="launch-method">
-                        <h3>{"Launch Native Game"}</h3>
-                        <p>{"Run the game locally for the best performance"}</p>
-                        <div class="code-block">
-                            <code>{"cargo run --bin stellar_heads"}</code>
-                        </div>
-                        <small>{"Run this command in your game directory"}</small>
-                    </div>
-                </div>
-
-                <div class="instructions">
-                    <h4>{"Game Controls:"}</h4>
-                    <div class="controls">
-                        <span>{"A/D or ←/→ - Move"}</span>
-                        <span>{"Space - Jump"}</span>
-                        <span>{"X - Kick Ball"}</span>
-                        <span>{"R - Reset Game"}</span>
-                    </div>
+                    <span class="player-name">{"Player: "}{(*username).clone()}</span>
+                    <span class="wallet-info">{
+                        if let Some(addr) = wallet_address.as_ref() {
+                            format!("Wallet: {}...{}", &addr[0..4], &addr[addr.len()-4..])
+                        } else {
+                            "Wallet: Unknown".to_string()
+                        }
+                    }</span>
                 </div>
             </div>
 
+            <div class="game-area">
+                <canvas id="stellar-heads-canvas"></canvas>
+            </div>
+
+            <div class="game-controls">
+                <div class="controls-info">
+                    <span>{"A/D - Move"}</span>
+                    <span>{"Space - Jump"}</span>
+                    <span>{"X - Kick"}</span>
+                </div>
+            </div>
             <style>
                 {r#"
-                .setup-container {
+                .game-container {
+                    display: flex;
+                    flex-direction: column;
                     min-height: 100vh;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    padding: 2rem;
                     background: linear-gradient(135deg, #0d1117 0%, #1a1a2e 50%, #16213e 100%);
-                }
-
-                .game-ready-card {
-                    background: rgba(255, 255, 255, 0.05);
-                    backdrop-filter: blur(20px);
-                    border: 1px solid rgba(255, 255, 255, 0.1);
-                    border-radius: 24px;
-                    padding: 3rem;
-                    max-width: 600px;
-                    text-align: center;
-                    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
-                }
-
-                .success-animation {
-                    margin-bottom: 2rem;
-                }
-
-                .success-circle {
-                    width: 80px;
-                    height: 80px;
-                    border-radius: 50%;
-                    background: linear-gradient(135deg, #10b981, #059669);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    margin: 0 auto;
-                    animation: success-bounce 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-                }
-
-                @keyframes success-bounce {
-                    0% { transform: scale(0); }
-                    50% { transform: scale(1.2); }
-                    100% { transform: scale(1); }
-                }
-
-                .checkmark {
-                    font-size: 2rem;
                     color: white;
-                    font-weight: bold;
+                    font-family: 'Arial', sans-serif;
+                }
+
+                .game-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 1rem 2rem;
+                    background: rgba(255, 255, 255, 0.05);
+                    backdrop-filter: blur(10px);
+                    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
                 }
 
                 .game-title {
-                    font-size: 2.5rem;
+                    font-size: 2rem;
                     font-weight: 700;
-                    background: linear-gradient(135deg, #4f46e5, #06b6d4, #8b5cf6);
-                    background-size: 200% 200%;
+                    background: linear-gradient(135deg, #4f46e5, #06b6d4);
                     -webkit-background-clip: text;
                     -webkit-text-fill-color: transparent;
-                    animation: gradient-shift 3s ease-in-out infinite;
-                    margin-bottom: 0.5rem;
-                }
-
-                @keyframes gradient-shift {
-                    0%, 100% { background-position: 0% 50%; }
-                    50% { background-position: 100% 50%; }
-                }
-
-                .ready-title {
-                    color: #10b981;
-                    font-size: 1.8rem;
-                    margin-bottom: 2rem;
+                    margin: 0;
                 }
 
                 .player-info {
-                    background: rgba(255, 255, 255, 0.05);
-                    border-radius: 16px;
-                    padding: 1.5rem;
-                    margin-bottom: 2rem;
-                }
-
-                .info-row {
                     display: flex;
-                    justify-content: space-between;
-                    margin-bottom: 0.5rem;
-                }
-
-                .info-row:last-child {
-                    margin-bottom: 0;
-                }
-
-                .label {
-                    color: rgba(255, 255, 255, 0.7);
-                    font-weight: 500;
-                }
-
-                .value {
-                    color: #06b6d4;
-                    font-weight: 600;
-                }
-
-                .launch-options {
-                    margin-bottom: 2rem;
-                }
-
-                .launch-method {
-                    background: rgba(255, 255, 255, 0.05);
-                    border: 1px solid rgba(255, 255, 255, 0.1);
-                    border-radius: 16px;
-                    padding: 2rem;
-                    text-align: center;
-                }
-
-                .launch-method h3 {
-                    color: #4f46e5;
-                    margin-bottom: 0.5rem;
-                }
-
-                .launch-method p {
-                    color: rgba(255, 255, 255, 0.7);
-                    margin-bottom: 1rem;
-                }
-
-                .code-block {
-                    background: rgba(0, 0, 0, 0.3);
-                    border: 1px solid rgba(255, 255, 255, 0.2);
-                    border-radius: 8px;
-                    padding: 1rem;
-                    margin: 1rem 0;
-                    font-family: 'Monaco', 'Consolas', monospace;
-                }
-
-                .code-block code {
-                    color: #06b6d4;
-                    font-size: 1.1rem;
-                    font-weight: 600;
-                }
-
-                .instructions {
-                    border-top: 1px solid rgba(255, 255, 255, 0.1);
-                    padding-top: 1.5rem;
-                }
-
-                .instructions h4 {
-                    color: rgba(255, 255, 255, 0.9);
-                    margin-bottom: 1rem;
-                }
-
-                .controls {
-                    display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-                    gap: 0.5rem;
-                    font-family: 'Monaco', 'Consolas', monospace;
+                    gap: 2rem;
                     font-size: 0.9rem;
                 }
 
-                .controls span {
-                    background: rgba(255, 255, 255, 0.05);
-                    padding: 0.5rem 1rem;
-                    border-radius: 8px;
+                .player-name, .wallet-info {
                     color: rgba(255, 255, 255, 0.8);
+                }
+
+                .game-area {
+                    flex: 1;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    padding: 2rem;
+                    min-height: 600px;
+                }
+
+                #stellar-heads-canvas {
+                    width: 1366px;
+                    height: 768px;
+                    max-width: 100%;
+                    max-height: 100%;
+                    border: 2px solid rgba(255, 255, 255, 0.2);
+                    border-radius: 12px;
+                    background: #000;
+                    display: block;
+                    cursor: crosshair;
+                }
+
+                .game-controls {
+                    padding: 1rem 2rem;
+                    background: rgba(255, 255, 255, 0.05);
+                    border-top: 1px solid rgba(255, 255, 255, 0.1);
+                }
+
+                .controls-info {
+                    display: flex;
+                    justify-content: center;
+                    gap: 2rem;
+                    font-size: 0.9rem;
+                    color: rgba(255, 255, 255, 0.7);
+                }
+
+                .controls-info span {
+                    padding: 0.5rem 1rem;
+                    background: rgba(255, 255, 255, 0.05);
+                    border-radius: 6px;
                 }
                 "#}
             </style>
         </div>
     }
+}
+
+async fn load_game_wasm() -> Result<(), String> {
+    use wasm_bindgen::prelude::*;
+    use web_sys::{HtmlScriptElement, Document, Window};
+
+    let window: Window = web_sys::window().ok_or("No window object")?;
+    let document: Document = window.document().ok_or("No document object")?;
+
+    // Check if canvas exists
+    if document.get_element_by_id("stellar-heads-canvas").is_none() {
+        return Err("Canvas element not found".to_string());
+    }
+
+    console::log_1(&"Canvas found, loading game WASM...".into());
+
+    // Create script element to load the game WASM
+    let script: HtmlScriptElement = document
+        .create_element("script")
+        .map_err(|e| format!("Failed to create element: {:?}", e))?
+        .dyn_into()
+        .map_err(|_| "Failed to create script element")?;
+
+    script.set_type("module");
+    script.set_text_content(Some(r#"
+        // Try to load the game using a simple fetch approach instead of ES modules
+        async function loadGame() {
+            // Prevent multiple initialization attempts
+            if (window.stellarHeadsGameInitialized) {
+                console.log('🎮 Game already initialized, skipping...');
+                return;
+            }
+
+            // Mark as initializing to prevent concurrent attempts
+            if (window.stellarHeadsGameInitializing) {
+                console.log('🎮 Game initialization already in progress, skipping...');
+                return;
+            }
+
+            window.stellarHeadsGameInitializing = true;
+
+            try {
+                console.log('🎮 Initializing Stellar Heads WASM...');
+
+                // Clean up any previous instances
+                if (window.stellarHeadsGameInstance) {
+                    console.log('🧹 Cleaning up previous game instance...');
+                    try {
+                        window.stellarHeadsGameInstance = null;
+                    } catch (e) {
+                        console.warn('Warning: Could not clean up previous instance:', e);
+                    }
+                }
+
+                // Load the game script directly
+                const gameScript = document.createElement('script');
+                gameScript.type = 'module';
+                gameScript.innerHTML = `
+                    import init, { main_js } from 'http://localhost:3000/game/stellar_heads_game.js';
+
+                    try {
+                        await init('http://localhost:3000/game/stellar_heads_game_bg.wasm');
+                        console.log('✅ WASM loaded, starting game...');
+                        window.stellarHeadsGameInstance = main_js();
+                        window.stellarHeadsGameInitialized = true;
+                        window.stellarHeadsGameInitializing = false;
+                        console.log('✅ Bevy game started successfully!');
+
+                        // Auto-start game by simulating key press after a delay
+                        setTimeout(() => {
+                            console.log('🚀 Auto-starting game...');
+                            // Simulate Space key press to start game
+                            const canvas = document.getElementById('stellar-heads-canvas');
+                            if (canvas) {
+                                canvas.focus();
+                                const event = new KeyboardEvent('keydown', { code: 'Space', key: ' ' });
+                                canvas.dispatchEvent(event);
+
+                                // Also try Enter key
+                                setTimeout(() => {
+                                    const enterEvent = new KeyboardEvent('keydown', { code: 'Enter', key: 'Enter' });
+                                    canvas.dispatchEvent(enterEvent);
+                                }, 500);
+                            }
+                        }, 2000);
+                    } catch (error) {
+                        console.error('❌ Failed to load game:', error);
+                        window.stellarHeadsGameInitialized = false;
+                        window.stellarHeadsGameInitializing = false;
+                        window.stellarHeadsGameInstance = null;
+                    }
+                `;
+                document.head.appendChild(gameScript);
+
+            } catch (error) {
+                console.error('❌ Failed to load game:', error);
+                // Reset flags on error to allow retry
+                window.stellarHeadsGameInitialized = false;
+                window.stellarHeadsGameInitializing = false;
+                window.stellarHeadsGameInstance = null;
+            }
+        }
+
+        loadGame();
+    "#));
+
+    document
+        .head()
+        .ok_or("No head element")?
+        .append_child(&script)
+        .map_err(|e| format!("Failed to append script: {:?}", e))?;
+
+    Ok(())
 }

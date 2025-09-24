@@ -2,7 +2,7 @@ use avian2d::prelude::*;
 use bevy::prelude::*;
 use super::{Ball, CollisionLayers};
 use crate::shared::{scoring::PlayerReset, AppState};
-use crate::shared::audio::music_system::PlayKickSound;
+use crate::shared::audio::music_system::{PlayKickSoundEvent, PlayKickSound};
 use rand::seq::SliceRandom;
 
 type PlayerMovementQuery<'a> = (
@@ -17,7 +17,6 @@ type PlayerMovementQuery<'a> = (
 type BallQuery<'a> = (&'a mut LinearVelocity, &'a Transform);
 type PlayerTransformQuery<'a> = &'a Transform;
 
-type GroundDetectionQuery<'a> = (Entity, &'a mut IsGrounded, &'a Transform);
 
 type AiMovementQuery<'a> = (
     &'a mut AiPlayer,
@@ -83,7 +82,7 @@ impl Default for CoyoteTime {
 }
 
 #[derive(Component)]
-pub struct PlayerTexture(pub Handle<Image>);
+pub struct PlayerTexture(Handle<Image>);
 
 #[derive(Bundle)]
 pub struct PlayerBundle {
@@ -286,7 +285,7 @@ fn player_ball_interaction(
         ball_velocity.x += kick_direction.x * kick_force;
         ball_velocity.y += kick_direction.y * kick_force + 50.0; 
 
-        kick_events.write(PlayKickSound);
+        kick_events.write(PlayKickSoundEvent);
         println!("Player kicked the ball!");
     }
 }
@@ -314,7 +313,7 @@ fn ai_ball_interaction(
                 ball_velocity.x += kick_direction.x * kick_force;
                 ball_velocity.y += kick_direction.y * kick_force + 30.0; // Less upward force than player
                 ai_player.decision_timer.reset(); 
-                kick_events.write(PlayKickSound);
+                kick_events.write(PlayKickSoundEvent);
                 println!("AI kicked the ball!");
             }
         }

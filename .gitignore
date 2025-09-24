@@ -1,1 +1,35 @@
-/target
+# Rust build artifacts
+/target/
+
+# WebAssembly build outputs
+dist/
+pkg/
+*.wasm
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Environment files
+.env.local
+.env.*.local
+
+# Node.js (if using npm/yarn for frontend tools)
+node_modules/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Build artifacts
+wasm-pack.log

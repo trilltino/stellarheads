@@ -2,7 +2,7 @@ use avian2d::prelude::*;
 use bevy::prelude::*;
 use crate::shared::AppState;
 use crate::shared::scoring::{GoalScored, GoalTeam};
-use crate::shared::audio::music_system::PlayKickSound;
+use crate::shared::audio::music_system::{PlayKickSoundEvent, PlayKickSound};
 use super::{Ball, Goal, Player};
 
 
@@ -32,7 +32,7 @@ pub fn ball_kick_collision_system(
             (balls.contains(entity_b) && players.contains(entity_a));
 
         if is_ball_player_collision {
-            kick_events.write(PlayKickSound);
+            kick_events.write(PlayKickSoundEvent);
             println!("⚽ Player kicked the ball!");
         }
     }

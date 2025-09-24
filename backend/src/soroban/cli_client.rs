@@ -24,7 +24,7 @@ impl SorobanCliClient {
 
     /// Check if a player has joined the leaderboard
     pub async fn has_joined(&self, player_address: &str) -> Result<bool, Box<dyn std::error::Error>> {
-        println!("🔍 Checking if {} has joined via CLI", player_address);
+        println!("Checking if {} has joined via CLI", player_address);
 
         let output = AsyncCommand::new("stellar")
             .args([

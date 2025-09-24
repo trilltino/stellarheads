@@ -4,6 +4,7 @@ use axum::{
     extract::{Json, State},
     http::StatusCode,
 };
+use tracing::{info, error};
 
 
 use shared::dto::auth::Guest;
@@ -13,7 +14,7 @@ pub async fn register_guest(
     State(pool): State<DbPool>,
     Json(req): Json<Guest>,
 ) -> (StatusCode, Json<SignUpResponse>) {
-    println!("Received guest registration: username={}, wallet_address={}", req.username, req.wallet_address);
+    info!("Received guest registration: username={}, wallet_address={}", req.username, req.wallet_address);
     
     // Check if user already exists with this wallet address
     match UserRepository::find_by_wallet_address(&pool, &req.wallet_address).await {
@@ -23,7 +24,7 @@ pub async fn register_guest(
                 match UserRepository::update_username(&pool, &req.wallet_address, &req.username).await {
                     Ok(updated_user) => updated_user,
                     Err(e) => {
-                        println!("Failed to update username: {:?}", e);
+                        error!("Failed to update username: {:?}", e);
                         existing_user
                     }
                 }
@@ -62,7 +63,7 @@ pub async fn register_guest(
                     (StatusCode::CREATED, Json(resp))
                 }
                 Err(e) => {
-                    println!("Database error creating guest: {:?}", e);
+                    error!("Database error creating guest: {:?}", e);
                     let error_user = UserPublic {
                         id: "error".to_string(),
                         username: "Error".to_string(),
@@ -78,7 +79,7 @@ pub async fn register_guest(
             }
         }
         Err(e) => {
-            println!("Database error finding user: {:?}", e);
+            error!("Database error finding user: {:?}", e);
             let error_user = UserPublic {
                 id: "error".to_string(),
                 username: "Error".to_string(),

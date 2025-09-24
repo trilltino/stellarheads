@@ -5,11 +5,26 @@
     <title>Stellar Heads</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <base href="/" />
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Stellar Freighter API -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/stellar-freighter-api/4.1.0/index.min.js"></script>
+
+    <!-- Include our CSS file -->
+    <link rel="stylesheet" href="/styles-909d376761d4b004.css" integrity="sha384-ezYjItujVAFjqArxb5w1sCBtOJh9nsYGQzOqcH8jIk/t3PJYT0u48CYVtORKvtSp"/>
+
+    <!-- Include Rust WASM -->
     
 <script type="module">
-import init, * as bindings from '/yew-scaffold-6a538c8753c6d2c3.js';
-const wasm = await init({ module_or_path: '/yew-scaffold-6a538c8753c6d2c3_bg.wasm' });
+import init, * as bindings from '/yew-scaffold-313b464fc356da3f.js';
+const wasm = await init({ module_or_path: '/yew-scaffold-313b464fc356da3f_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -18,69 +33,7 @@ window.wasmBindings = bindings;
 dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
 
 </script>
-    
-    
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: 'Arial', sans-serif;
-            background: linear-gradient(135deg, #0d1117, #1a1a2e);
-            color: white;
-        }
-        .game-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-            padding: 20px;
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        .header h1 {
-            font-size: 3rem;
-            margin-bottom: 10px;
-            background: linear-gradient(45deg, #4f46e5, #06b6d4);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        .game-area {
-            width: 100%;
-            max-width: 1200px;
-            height: 600px;
-            border: 2px solid #30363d;
-            border-radius: 12px;
-            background: #0d1117;
-            overflow: hidden;
-        }
-        canvas {
-            width: 100% !important;
-            height: 100% !important;
-            display: block;
-        }
-        .controls {
-            margin-top: 20px;
-        }
-        button {
-            background: #4f46e5;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 16px;
-            transition: background 0.3s;
-        }
-        button:hover {
-            background: #3730a3;
-        }
-    </style>
-<link rel="modulepreload" href="/yew-scaffold-6a538c8753c6d2c3.js" crossorigin="anonymous" integrity="sha384-zDudsveBBlPtdYTGzp78kh4J6qFAGRRGLgADItq8CpEZyg8MgNC9WdyZQVcofcuC"><link rel="preload" href="/yew-scaffold-6a538c8753c6d2c3_bg.wasm" crossorigin="anonymous" integrity="sha384-Ty5vwmNTPRIQdLZ0HOCOp6tVJF2VV5aSzjkbqui3/u2+Ld3TGELBCBuZs6FAj0Cb" as="fetch" type="application/wasm"></head>
+<link rel="modulepreload" href="/yew-scaffold-313b464fc356da3f.js" crossorigin="anonymous" integrity="sha384-xRKM63zkllgiak56ipErY1CpmmI4lrABE8jOgsj6w9b5FDpSN0RPUiivS3Sbz1QJ"><link rel="preload" href="/yew-scaffold-313b464fc356da3f_bg.wasm" crossorigin="anonymous" integrity="sha384-ATV9aNPPMIN+s5NR0IvHf6OjoQnAQJxv8GzbdWzlPqri4Fhq8HNjS1V3/42xNxiR" as="fetch" type="application/wasm"></head>
 
 
 <body>

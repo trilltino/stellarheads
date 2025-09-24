@@ -1,0 +1,292 @@
+/* Global Styles - Based on XForce Solutions Design */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    height: 100%;
+    overflow-x: hidden;
+}
+
+body {
+    font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #000000 0%, #1a1a1a 50%, #000000 100%);
+    color: white;
+    line-height: 1.6;
+    min-height: 100vh;
+}
+
+/* Page Layout */
+.page-layout {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.page-content {
+    margin-top: 70px; /* Account for fixed navbar */
+    flex: 1;
+    padding: 0;
+}
+
+/* About Page Styling */
+.about-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 60px 20px;
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 15px;
+    margin-top: 40px;
+    margin-bottom: 40px;
+    border: 1px solid #333;
+}
+
+.about-container h1 {
+    font-size: 3rem;
+    text-align: center;
+    margin-bottom: 40px;
+    background: linear-gradient(45deg, #00d4ff, #0099cc);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.about-container h2 {
+    font-size: 2rem;
+    color: #00d4ff;
+    margin: 30px 0 20px 0;
+    border-bottom: 2px solid #333;
+    padding-bottom: 10px;
+}
+
+.about-content p {
+    font-size: 1.1rem;
+    margin-bottom: 20px;
+    color: #e0e0e0;
+    line-height: 1.8;
+}
+
+.about-content ul {
+    list-style: none;
+    padding-left: 20px;
+}
+
+.about-content li {
+    margin-bottom: 10px;
+    position: relative;
+    color: #d0d0d0;
+    padding-left: 25px;
+}
+
+.about-content li::before {
+    content: "▶";
+    color: #00d4ff;
+    position: absolute;
+    left: 0;
+    top: 0;
+}
+
+/* Learn More Page Styling */
+.learn-more-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 60px 20px;
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 15px;
+    margin-top: 40px;
+    margin-bottom: 40px;
+    border: 1px solid #333;
+}
+
+.learn-more-container h1 {
+    font-size: 3rem;
+    text-align: center;
+    margin-bottom: 40px;
+    background: linear-gradient(45deg, #00d4ff, #0099cc);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.learn-section {
+    margin-bottom: 40px;
+    padding: 30px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 10px;
+    border: 1px solid #333;
+}
+
+.learn-section h2 {
+    font-size: 2rem;
+    color: #00d4ff;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #333;
+    padding-bottom: 10px;
+}
+
+.learn-section h3 {
+    font-size: 1.4rem;
+    color: #00b4d8;
+    margin: 20px 0 15px 0;
+}
+
+.learn-section p {
+    font-size: 1.1rem;
+    margin-bottom: 15px;
+    color: #e0e0e0;
+    line-height: 1.8;
+}
+
+.learn-section ul, .learn-section ol {
+    margin: 15px 0 15px 20px;
+    color: #d0d0d0;
+}
+
+.learn-section li {
+    margin-bottom: 10px;
+    line-height: 1.6;
+}
+
+.learn-section strong {
+    color: #00d4ff;
+    font-weight: 600;
+}
+
+/* Game Instructions Styling */
+.game-instructions {
+    background: rgba(0, 212, 255, 0.05);
+    padding: 20px;
+    border-radius: 8px;
+    border-left: 4px solid #00d4ff;
+    margin-top: 20px;
+}
+
+/* 404 Page Styling */
+.not-found {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.not-found h1 {
+    font-size: 4rem;
+    color: #00d4ff;
+    margin-bottom: 20px;
+}
+
+.not-found p {
+    font-size: 1.2rem;
+    color: #ccc;
+    margin-bottom: 30px;
+}
+
+.not-found a {
+    display: inline-block;
+    padding: 15px 30px;
+    background: linear-gradient(45deg, #00d4ff, #0099cc);
+    color: white;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 600;
+    transition: transform 0.3s ease;
+}
+
+.not-found a:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(0, 212, 255, 0.3);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .about-container, .learn-more-container {
+        margin-top: 20px;
+        margin-bottom: 20px;
+        padding: 40px 15px;
+        border-radius: 10px;
+    }
+
+    .about-container h1, .learn-more-container h1 {
+        font-size: 2.2rem;
+    }
+
+    .about-container h2, .learn-section h2 {
+        font-size: 1.6rem;
+    }
+
+    .learn-section {
+        padding: 20px 15px;
+        margin-bottom: 30px;
+    }
+
+    .not-found h1 {
+        font-size: 3rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .page-content {
+        padding: 0 10px;
+    }
+
+    .about-container h1, .learn-more-container h1 {
+        font-size: 1.8rem;
+        margin-bottom: 30px;
+    }
+
+    .about-container h2, .learn-section h2 {
+        font-size: 1.4rem;
+    }
+
+    .learn-section h3 {
+        font-size: 1.2rem;
+    }
+
+    .not-found h1 {
+        font-size: 2.5rem;
+    }
+}
+
+/* Smooth Scrolling */
+html {
+    scroll-behavior: smooth;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #1a1a1a;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Loading Animation */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.about-container, .learn-more-container, .learn-section {
+    animation: fadeInUp 0.8s ease-out;
+}

@@ -1,0 +1,15 @@
+{
+  "name": "stellar_heads_game",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "stellar_heads_game_bg.wasm",
+    "stellar_heads_game.js",
+    "stellar_heads_game.d.ts"
+  ],
+  "main": "stellar_heads_game.js",
+  "types": "stellar_heads_game.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

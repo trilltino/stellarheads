@@ -2,8 +2,10 @@ use yew::Renderer;
 
 mod api;
 mod freighter;
+mod homepage;
 mod loginpage;
 mod gamepage;
+mod navbar;
 mod routes;
 mod soroban;
 

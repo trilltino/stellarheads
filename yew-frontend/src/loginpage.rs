@@ -203,7 +203,7 @@ pub fn login_page() -> Html {
                             loading.set(false);
                             
                             // Navigate to game after successful join
-                            navigator.push(&Route::Setup);
+                            navigator.push(&Route::Game);
                         },
                         Err(e) => {
                             web_sys::console::log_1(&format!("❌ Failed to join contract: {}", e).into());
@@ -406,7 +406,7 @@ pub fn login_page() -> Html {
                                         onclick={{
                                             let navigator = navigator.clone();
                                             Callback::from(move |_| {
-                                                navigator.push(&Route::Setup);
+                                                navigator.push(&Route::Game);
                                             })
                                         }}
                                     >

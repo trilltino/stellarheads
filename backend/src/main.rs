@@ -6,6 +6,8 @@ use axum::{
 };
 use tower_http::{cors::CorsLayer, services::ServeDir};
 use std::net::SocketAddr;
+use tracing::{info, error};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 // SPA fallback handler
 async fn spa_fallback(_uri: Uri) -> Result<Response, StatusCode> {
@@ -14,8 +16,11 @@ async fn spa_fallback(_uri: Uri) -> Result<Response, StatusCode> {
             .status(StatusCode::OK)
             .header("content-type", "text/html")
             .body(content.into())
-            .unwrap()),
-        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?),
+        Err(e) => {
+            error!("Failed to read index.html: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
     }
 }
 
@@ -42,18 +47,27 @@ use backend::handlers::{
 
 #[tokio::main]
 async fn main() {
-    // load env (root .env if present), then backend/.env inside create_pool
+    // Initialize tracing
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "backend=debug,tower_http=debug".into()),
+        )
+        .with(tracing_subscriber::fmt::layer())
+        .init();
+
+    // Load environment variables
     dotenvy::dotenv().ok();
 
     // Create database pool
     let pool = match create_pool().await {
         Ok(pool) => {
-            println!("✅ Database connection established");
+            info!("Database connection established");
             pool
         }
         Err(e) => {
-            eprintln!("❌ Failed to connect to database: {}", e);
-            eprintln!("💡 Make sure PostgreSQL is running and DATABASE_URL is set correctly");
+            error!("Failed to connect to database: {}", e);
+            error!("Make sure PostgreSQL is running and DATABASE_URL is set correctly");
             std::process::exit(1);
         }
     };
@@ -77,17 +91,16 @@ async fn main() {
         .route("/api/games/recent", get(get_recent_games))
 
         // Serve game WASM files at /game
-        .nest_service("/game", ServeDir::new("../game/dist"))
+        .nest_service("/game", ServeDir::new("static/game"))
         // Serve static frontend assets
         .nest_service("/static", ServeDir::new("../yew-frontend/dist"))
         // SPA fallback for all other routes
         .fallback(spa_fallback)
         .with_state(pool)
-        .layer(CorsLayer::permissive())
         .layer(CorsLayer::permissive());
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
-    println!("Backend server on http://{}", addr);
+    info!("Backend server running on http://{}", addr);
 
     let listener = tokio::net::TcpListener::bind(addr)
         .await

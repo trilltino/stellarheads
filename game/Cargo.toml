@@ -14,10 +14,10 @@ crate-type = ["cdylib", "rlib"]
 # Removed networking features - single-player game only
 
 [dependencies]
-# Strip Bevy down to essentials only
+# Bevy with web-compatible features
 bevy = { version = "0.16.1", default-features = false, features = [
     "bevy_state", "bevy_winit", "bevy_render", "bevy_core_pipeline",
-    "bevy_sprite", "bevy_asset", "bevy_audio", "vorbis", "mp3", "png"
+    "bevy_sprite", "bevy_asset", "bevy_audio", "vorbis", "mp3", "png", "webgl2"
 ] }
 
 # Removed lightyear - not needed for single-player game
@@ -38,6 +38,7 @@ egui = "0.32.2"
 wasm-bindgen = "0.2"
 getrandom = { version = "0.3", features = ["wasm_js"] }
 console_error_panic_hook = "0.1.6"
+instant = { version = "0.1", features = ["wasm-bindgen"] }
 shared = { path = "../shared" }
 reqwest = { version = "0.12", features = ["json", "blocking"] }
 tokio = { version = "1.0", features = ["rt"] }

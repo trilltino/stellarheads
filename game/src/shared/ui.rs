@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_egui::{egui, EguiContexts, EguiPrimaryContextPass};
+use bevy_egui::{egui, EguiContexts};
 use crate::shared::scoring::{Score, GameTimer, ScoreNotifications, GoalTeam};
 
 // ================= STATES =================
@@ -9,7 +9,6 @@ pub enum AppState {
     #[default]
     LaunchMenu,
     InGame,
-    Paused,
     GameOver,
 }
 
@@ -28,7 +27,6 @@ impl ComputedStates for GameUI {
         match source_states {
             AppState::LaunchMenu => Some(GameUI::MainMenuUI),
             AppState::InGame => Some(GameUI::GameHUD),
-            AppState::Paused => Some(GameUI::PausedMenuUI),
             AppState::GameOver => Some(GameUI::ResultUI),
         }
     }
@@ -424,22 +422,31 @@ pub fn game_over_ui_system(
 pub struct StateUIPlugin;
 impl Plugin for StateUIPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(AppState::LaunchMenu), on_enter_load_splash)
-           .add_systems(OnEnter(AppState::GameOver), store_match_result)
-           .add_systems(EguiPrimaryContextPass, launch_menu_system.run_if(in_state(AppState::LaunchMenu)))
-           .add_systems(EguiPrimaryContextPass, game_over_ui_system.run_if(in_state(AppState::GameOver)))
+        app.add_systems(OnEnter(AppState::GameOver), store_match_result)
            .add_systems(Update, debug_current_gamemode_state);
+
+        // Only add EGUI systems for native builds
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            app.add_systems(OnEnter(AppState::LaunchMenu), on_enter_load_splash)
+               .add_systems(EguiPrimaryContextPass, launch_menu_system.run_if(in_state(AppState::LaunchMenu)))
+               .add_systems(EguiPrimaryContextPass, game_over_ui_system.run_if(in_state(AppState::GameOver)));
+        }
     }
 }
 
 pub struct UIPlugin;
 impl Plugin for UIPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update,setup_fonts);
-        app.add_systems(
-            EguiPrimaryContextPass,
-            (score_ui_system, score_notifications_system)
-                .run_if(in_state(AppState::InGame)),
-        );
+        // Only add EGUI systems for native builds
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            app.add_systems(Update, setup_fonts);
+            app.add_systems(
+                Update,
+                (score_ui_system, score_notifications_system)
+                    .run_if(in_state(AppState::InGame)),
+            );
+        }
     }
 }

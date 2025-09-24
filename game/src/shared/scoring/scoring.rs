@@ -3,7 +3,6 @@ use crate::shared::AppState;
 use shared::dto::game::{GameResult, MatchResult};
 
 #[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::*;
 
 // ================= HTTP Client for Direct Communication =================
 
@@ -20,26 +19,16 @@ pub struct PlayerInfo {
 #[derive(Resource)]
 pub struct GameSession {
     pub session_id: String,
-    pub started_at: std::time::Instant,
 }
 
 impl GameSession {
     pub fn new() -> Self {
         Self {
             session_id: uuid::Uuid::new_v4().to_string(),
-            started_at: std::time::Instant::now(),
         }
     }
 }
 
-impl PlayerInfo {
-    pub fn new(username: String, wallet_address: String) -> Self {
-        Self {
-            username,
-            wallet_address,
-        }
-    }
-}
 
 // ================= Score Management =================
 
@@ -51,13 +40,6 @@ pub struct Score {
 }
 
 impl Score {
-    pub fn new() -> Self {
-        Self {
-            left_team: 0,
-            right_team: 0,
-            high_score: 0,
-        }
-    }
 
     pub fn add_point(&mut self, team: GoalTeam) {
         match team {

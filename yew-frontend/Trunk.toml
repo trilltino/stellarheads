@@ -1,0 +1,37 @@
+[build]
+target = "index.html"
+dist = "dist"
+release = true
+
+[watch]
+watch = ["src"]
+
+[serve]
+address = "127.0.0.1"
+port = 8080
+open = false
+
+[clean]
+dist = "dist"
+cargo = true
+
+# Production optimizations
+[build.rust]
+opt_level = "z"  # Optimize for size
+lto = true       # Link time optimization
+
+# Hooks for WASM game integration
+[[hooks]]
+stage = "pre_build"
+command = "powershell"
+command_arguments = ["-Command", "if (!(Test-Path 'dist/game')) { New-Item -Path 'dist/game' -ItemType Directory -Force; Write-Host 'Created dist/game directory' } else { Write-Host 'dist/game directory already exists' }"]
+
+[[hooks]]
+stage = "pre_build"
+command = "powershell"
+command_arguments = ["-Command", "if (Test-Path '../game/pkg/stellar_heads_game.js') { Copy-Item '../game/pkg/stellar_heads_game.js' 'dist/game/' -Force; Write-Host 'Copied stellar_heads_game.js' } else { Write-Host 'Warning: stellar_heads_game.js not found - run wasm-pack build first' }"]
+
+[[hooks]]
+stage = "pre_build"
+command = "powershell"
+command_arguments = ["-Command", "if (Test-Path '../game/pkg/stellar_heads_game_bg.wasm') { Copy-Item '../game/pkg/stellar_heads_game_bg.wasm' 'dist/game/' -Force; Write-Host 'Copied stellar_heads_game_bg.wasm' } else { Write-Host 'Warning: stellar_heads_game_bg.wasm not found - run wasm-pack build first' }"]

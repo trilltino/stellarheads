@@ -2,6 +2,7 @@ use avian2d::prelude::*;
 use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
 use bevy::core_pipeline::bloom::Bloom;
+use bevy::audio::AudioSource;
 mod shared;
 mod rendering;
 
@@ -20,14 +21,14 @@ fn main() {
         // Set up panic hook for better error messages in browser console
         console_error_panic_hook::set_once();
         // Initialize console logging for WASM
-        web_sys::console::log_1(&"🎮 Initializing Stellar Heads WASM...".into());
+        web_sys::console::log_1(&"Initializing Stellar Heads WASM...".into());
     }
 
     App::new()
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
-                    title: "🌟 Stellar Heads".into(),
+                    title: "Stellar Heads".into(),
                     resolution: (1366.0, 768.0).into(),
                     canvas: Some("#stellar-heads-canvas".into()), // Use the custom canvas from Yew frontend
                     resizable: false,
@@ -38,8 +39,8 @@ fn main() {
             PhysicsPlugins::default(),
             EguiPlugin::default(),
         ))
-        .init_asset::<bevy::audio::AudioSource>()
         .insert_resource(ClearColor(Color::srgb(0.05, 0.05, 0.1)))
+        .init_asset::<AudioSource>()
         .insert_state(AppState::LaunchMenu)
         .register_type::<Ball>()
         .register_type::<Player>()
