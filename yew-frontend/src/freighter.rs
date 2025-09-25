@@ -13,7 +13,6 @@ pub enum FreighterError {
     UserRejected,
 }
 
-
 impl fmt::Display for FreighterError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -28,6 +27,7 @@ impl fmt::Display for FreighterError {
         }
     }
 }
+
 
 impl std::error::Error for FreighterError {}
 
@@ -60,15 +60,15 @@ fn get_freighter_api() -> Result<JsValue, FreighterError> {
     match Reflect::get(window.as_ref(), &JsValue::from_str("freighterApi")) {
         Ok(api) => {
             if api.is_undefined() || api.is_null() {
-                web_sys::console::log_1(&JsValue::from_str("🔍 freighterApi is undefined/null"));
+                web_sys::console::log_1(&JsValue::from_str(" freighterApi is undefined/null"));
                 Err(FreighterError::FreighterExtNotFound)
             } else {
-                web_sys::console::log_1(&JsValue::from_str("✅ freighterApi found!"));
+                web_sys::console::log_1(&JsValue::from_str(" freighterApi found!"));
                 Ok(api)
             }
         },
         Err(_) => {
-            web_sys::console::log_1(&JsValue::from_str("❌ freighterApi not accessible"));
+            web_sys::console::log_1(&JsValue::from_str("freighterApi not accessible"));
             Err(FreighterError::FreighterExtNotFound)
         }
     }
@@ -79,36 +79,30 @@ pub fn is_freighter_available() -> bool {
 }
 
 pub async fn connect_wallet() -> Result<String, FreighterError> {
-    web_sys::console::log_1(&JsValue::from_str("🚀 Starting Freighter connection..."));
     let api = get_freighter_api()?;
     let _timeout_duration = std::time::Duration::from_secs(30);
-    web_sys::console::log_1(&JsValue::from_str(&format!("⏱️  Setting 30-second timeout for wallet connection")));
-    web_sys::console::log_1(&JsValue::from_str("Requesting access..."));
-
     let request_access_method = Reflect::get(&api, &JsValue::from_str("requestAccess"))?;
+
     if request_access_method.is_function() {
         let function = request_access_method.dyn_into::<Function>()?;
         let promise = function.call0(&api)?;
         let promise = promise.dyn_into::<Promise>()?;
+
         match JsFuture::from(promise).await {
             Ok(_) => web_sys::console::log_1(&JsValue::from_str("Access granted!")),
             Err(e) => {
                 web_sys::console::log_1(&JsValue::from_str("Access denied"));
                 web_sys::console::log_1(&JsValue::from_str(&format!("Error details: {:?}", e)));
-                // Log the raw error object for debugging
                 web_sys::console::log_1(&e);
                 return Err(FreighterError::from(e));
             }
         }
     }
 
-    web_sys::console::log_1(&JsValue::from_str("Getting public key..."));
     let method_names = ["getPublicKey", "getUserInfo", "getAddress"];
     let mut get_public_key_method = JsValue::undefined();
-
     for method_name in &method_names {
         let method = Reflect::get(&api, &JsValue::from_str(method_name))?;
-
         if method.is_function() {
             web_sys::console::log_1(&JsValue::from_str(&format!("Found working method: {}", method_name)));
             get_public_key_method = method;
@@ -130,28 +124,22 @@ pub async fn connect_wallet() -> Result<String, FreighterError> {
                 web_sys::console::log_1(&JsValue::from_str(&format!("Got key: {}", public_key)));
                 Ok(public_key)
             }
+
             else if let Ok(obj) = result.clone().dyn_into::<js_sys::Object>() {
                 if let Ok(address) = Reflect::get(&obj, &JsValue::from_str("address")) {
                     if let Some(address_str) = address.as_string() {
-                        web_sys::console::log_1(&JsValue::from_str(&format!("Got address: {}", address_str)));
                         Ok(address_str)
                     } else {
-                        web_sys::console::log_1(&JsValue::from_str(&format!("Address not string: {:?}", address)));
                         Err(FreighterError::JsExecutionError("Address property is not a string".to_string()))
                     }
                 } else {
-                    web_sys::console::log_1(&JsValue::from_str(&format!("No address property found: {:?}", result)));
                     Err(FreighterError::JsExecutionError("No address property in result".to_string()))
                 }
             } else {
-                web_sys::console::log_1(&JsValue::from_str(&format!("Unknown result type: {:?}", result)));
                 Err(FreighterError::JsExecutionError("getPublicKey returned unknown format".to_string()))
             }
         },
         Err(e) => {
-            web_sys::console::log_1(&JsValue::from_str("getPublicKey failed"));
-            web_sys::console::log_1(&JsValue::from_str(&format!("getPublicKey error details: {:?}", e)));
-            web_sys::console::log_1(&e);
             Err(FreighterError::from(e))
         }
     }

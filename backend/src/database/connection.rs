@@ -9,7 +9,6 @@ fn mask_password(url: &str) -> String {
         .enumerate()
         .map(|(i, part)| {
             if i == 0 && part.contains(':') {
-                // This is the user:password part
                 let mut parts: Vec<&str> = part.split(':').collect();
                 if parts.len() >= 3 {
                     parts[2] = "***";
@@ -24,7 +23,6 @@ fn mask_password(url: &str) -> String {
 }
 
 pub async fn create_pool() -> Result<DbPool, sqlx::Error> {
-    // Load environment variables from backend/.env
     if let Err(e) = dotenvy::from_filename("backend/.env") {
         warn!("Could not load backend/.env: {}", e);
         info!("Trying to load from current directory .env");
@@ -41,7 +39,6 @@ pub async fn create_pool() -> Result<DbPool, sqlx::Error> {
         .connect(&database_url)
         .await?;
 
-    // Run migrations
     sqlx::migrate!("./migrations")
         .run(&pool)
         .await?;

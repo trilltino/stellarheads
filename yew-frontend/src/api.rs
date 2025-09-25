@@ -8,7 +8,7 @@ pub struct ApiClient {
 impl Default for ApiClient {
     fn default() -> Self {
         Self {
-            base_url: "http://localhost:3000".to_string(),
+            base_url: String::new(), // Use relative URLs for production compatibility
         }
     }
 }
@@ -16,8 +16,11 @@ impl Default for ApiClient {
 impl ApiClient {
 
     pub async fn register_guest(&self, guest: Guest) -> Result<SignUpResponse, String> {
-        let url = format!("{}/api/auth/register-guest", self.base_url);
-        
+        let url = if self.base_url.is_empty() {
+            "/api/auth/register-guest".to_string()
+        } else {
+            format!("{}/api/auth/register-guest", self.base_url)
+        };
         let response = Request::post(&url)
             .header("content-type", "application/json")
             .json(&guest)
@@ -26,15 +29,13 @@ impl ApiClient {
             .await
             .map_err(|e| format!("Network error: {e}"))?;
         
-        if response.ok() {
+            if response.ok() {
             response
                 .json::<SignUpResponse>()
                 .await
                 .map_err(|e| format!("Response parse error: {e}"))
-        } else {
+            } else {
             Err(format!("HTTP error: {}", response.status()))
         }
     }
-
-
 }

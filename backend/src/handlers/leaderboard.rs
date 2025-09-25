@@ -16,8 +16,6 @@ pub struct LeaderboardEntry {
     pub wins: u32,
 }
 
-// ================= REQUEST/RESPONSE TYPES =================
-
 #[derive(Debug, Deserialize)]
 pub struct JoinLeaderboardRequest {
     pub player_address: String,
@@ -36,7 +34,7 @@ pub struct JoinLeaderboardResponse {
 pub struct RecordGameResultRequest {
     pub player_address: String,
     pub username: String,
-    pub won: bool, // true for win, false for loss
+    pub won: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -79,8 +77,6 @@ pub struct LeaderboardResponse {
     pub total_players: usize,
 }
 
-// ================= HELPER FUNCTIONS =================
-
 fn get_contract_address() -> String {
     std::env::var("LEADERBOARD_CONTRACT_ADDRESS")
         .unwrap_or_else(|_| "CDQCZWN3W4DRVGIT23RWZ5GSU5XYDNGGRCOSKQG6ZLD5DWBMEAEKZG6N".to_string())
@@ -88,24 +84,20 @@ fn get_contract_address() -> String {
 
 fn create_cli_client() -> SorobanCliClient {
     let contract_address = get_contract_address();
-    let use_testnet = true; // Use testnet for development
+    let use_testnet = true;
 
     SorobanCliClient::new(contract_address, use_testnet)
 }
 
-// ================= HANDLER FUNCTIONS =================
-
-/// Create a transaction for joining the leaderboard
 pub async fn join_leaderboard(
     Json(req): Json<JoinLeaderboardRequest>,
 ) -> Result<(StatusCode, Json<JoinLeaderboardResponse>), (StatusCode, Json<serde_json::Value>)> {
 
     let client = create_cli_client();
 
-    // First check if already joined
     let already_joined = match client.has_joined(&req.player_address).await {
         Ok(joined) => joined,
-        Err(_) => false, // If error checking, assume not joined
+        Err(_) => false,
     };
 
     if already_joined {
@@ -138,14 +130,12 @@ pub async fn join_leaderboard(
     }
 }
 
-/// Create a transaction for recording a game result (win or loss)
 pub async fn record_game_result(
     Json(req): Json<RecordGameResultRequest>,
 ) -> Result<(StatusCode, Json<RecordGameResultResponse>), (StatusCode, Json<serde_json::Value>)> {
 
     let client = create_cli_client();
 
-    // Check if player has joined
     let has_joined = match client.has_joined(&req.player_address).await {
         Ok(joined) => joined,
         Err(_) => false,
@@ -159,11 +149,9 @@ pub async fn record_game_result(
         return Err((StatusCode::BAD_REQUEST, Json(error_response)));
     }
 
-    // Only handle wins in the simple contract
     let transaction_request = if req.won {
         client.create_add_win_transaction(&req.player_address).await
     } else {
-        // For losses, return success without blockchain transaction
         let response = RecordGameResultResponse {
             transaction_xdr: String::new(),
             network_passphrase: String::new(),
@@ -192,7 +180,6 @@ pub async fn record_game_result(
     }
 }
 
-/// Submit a signed transaction to the network
 pub async fn submit_signed_transaction(
     Json(req): Json<SubmitSignedTransactionRequest>,
 ) -> Result<(StatusCode, Json<TransactionResult>), (StatusCode, Json<serde_json::Value>)> {
@@ -221,7 +208,6 @@ pub async fn submit_signed_transaction(
     }
 }
 
-/// Get player statistics
 pub async fn get_player_stats(
     Query(params): Query<PlayerStatsQuery>,
 ) -> Result<(StatusCode, Json<PlayerStatsResponse>), (StatusCode, Json<serde_json::Value>)> {
@@ -242,7 +228,6 @@ pub async fn get_player_stats(
         return Ok((StatusCode::OK, Json(response)));
     }
 
-    // For simple contract, get wins directly
     let wins = match client.get_wins(&params.player_address).await {
         Ok(wins) => wins,
         Err(_) => 0,
@@ -259,14 +244,11 @@ pub async fn get_player_stats(
     Ok((StatusCode::OK, Json(response)))
 }
 
-/// Get the full leaderboard
 pub async fn get_leaderboard(
 ) -> Result<(StatusCode, Json<serde_json::Value>), (StatusCode, Json<serde_json::Value>)> {
 
     let _client = create_cli_client();
 
-    // Simple contract doesn't have get_leaderboard function
-    // Return empty leaderboard with message
     let response = serde_json::json!({
         "entries": [],
         "total_players": 0,
@@ -276,7 +258,6 @@ pub async fn get_leaderboard(
     Ok((StatusCode::OK, Json(response)))
 }
 
-/// Check if a player has joined the leaderboard
 pub async fn check_player_joined(
     Query(params): Query<PlayerStatsQuery>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), (StatusCode, Json<serde_json::Value>)> {
@@ -306,14 +287,12 @@ pub async fn check_player_joined(
     }
 }
 
-/// Test endpoint: Add a win for a player (generates XDR)
 pub async fn test_add_win(
     Query(params): Query<PlayerStatsQuery>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), (StatusCode, Json<serde_json::Value>)> {
 
     let client = create_cli_client();
 
-    // Check if player has joined
     let has_joined = match client.has_joined(&params.player_address).await {
         Ok(joined) => joined,
         Err(_) => false,
@@ -327,13 +306,11 @@ pub async fn test_add_win(
         return Err((StatusCode::BAD_REQUEST, Json(error_response)));
     }
 
-    // Get current wins
     let current_wins = match client.get_wins(&params.player_address).await {
         Ok(wins) => wins,
         Err(_) => 0,
     };
 
-    // Create add_win transaction
     match client.create_add_win_transaction(&params.player_address).await {
         Ok(tx_req) => {
             let response = serde_json::json!({

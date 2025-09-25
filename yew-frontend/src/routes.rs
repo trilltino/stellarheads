@@ -23,7 +23,6 @@ pub enum Route {
     NotFound,
 }
 
-// Home page component with navbar
 #[function_component(HomePageWithNav)]
 fn home_page_with_nav() -> Html {
     html! {
@@ -36,7 +35,7 @@ fn home_page_with_nav() -> Html {
     }
 }
 
-// About page component
+
 #[function_component(AboutPage)]
 fn about_page() -> Html {
     html! {
@@ -69,7 +68,6 @@ fn about_page() -> Html {
     }
 }
 
-// Learn More page component
 #[function_component(LearnMorePage)]
 fn learn_more_page() -> Html {
     html! {
@@ -130,7 +128,6 @@ fn learn_more_page() -> Html {
     }
 }
 
-// Game page component with navbar
 #[function_component(GamePageWithNav)]
 fn game_page_with_nav() -> Html {
     html! {
@@ -142,6 +139,7 @@ fn game_page_with_nav() -> Html {
         </div>
     }
 }
+
 
 pub fn switch(routes: Route) -> Html {
     match routes {

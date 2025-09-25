@@ -9,6 +9,25 @@ use tracing::{info, error};
 
 use shared::dto::auth::Guest;
 use shared::dto::user::{SignUpResponse, UserPublic};
+use crate::database::models::User;
+
+fn create_user_public(user: &User) -> UserPublic {
+    UserPublic {
+        id: user.id.to_string(),
+        username: user.username.clone(),
+        wallet_address: user.wallet_address.clone(),
+        created_at: user.created_at.map_or("Unknown".to_string(), |dt| dt.to_string()),
+    }
+}
+
+fn create_error_user_public() -> UserPublic {
+    UserPublic {
+        id: "error".to_string(),
+        username: "Error".to_string(),
+        wallet_address: "".to_string(),
+        created_at: "".to_string(),
+    }
+}
 
 pub async fn register_guest(
     State(pool): State<DbPool>,
@@ -16,10 +35,8 @@ pub async fn register_guest(
 ) -> (StatusCode, Json<SignUpResponse>) {
     info!("Received guest registration: username={}, wallet_address={}", req.username, req.wallet_address);
     
-    // Check if user already exists with this wallet address
     match UserRepository::find_by_wallet_address(&pool, &req.wallet_address).await {
         Ok(Some(existing_user)) => {
-            // User already exists, update username if different
             let user = if existing_user.username != req.username {
                 match UserRepository::update_username(&pool, &req.wallet_address, &req.username).await {
                     Ok(updated_user) => updated_user,
@@ -32,12 +49,7 @@ pub async fn register_guest(
                 existing_user
             };
 
-            let user_public = UserPublic {
-                id: user.id.to_string(),
-                username: user.username,
-                wallet_address: user.wallet_address,
-                created_at: user.created_at.map_or("Unknown".to_string(), |dt| dt.to_string()),
-            };
+            let user_public = create_user_public(&user);
             
             let resp = SignUpResponse {
                 user: user_public,
@@ -46,15 +58,9 @@ pub async fn register_guest(
             (StatusCode::OK, Json(resp))
         }
         Ok(None) => {
-            // Create new user
             match UserRepository::create_guest(&pool, &req.username, &req.wallet_address).await {
                 Ok(db_user) => {
-                    let user_public = UserPublic {
-                        id: db_user.id.to_string(),
-                        username: db_user.username,
-                        wallet_address: db_user.wallet_address,
-                        created_at: db_user.created_at.map_or("Unknown".to_string(), |dt| dt.to_string()),
-                    };
+                    let user_public = create_user_public(&db_user);
                     
                     let resp = SignUpResponse {
                         user: user_public,
@@ -64,14 +70,8 @@ pub async fn register_guest(
                 }
                 Err(e) => {
                     error!("Database error creating guest: {:?}", e);
-                    let error_user = UserPublic {
-                        id: "error".to_string(),
-                        username: "Error".to_string(),
-                        wallet_address: "".to_string(),
-                        created_at: "".to_string(),
-                    };
                     let resp = SignUpResponse {
-                        user: error_user,
+                        user: create_error_user_public(),
                         message: format!("Failed to create guest: {}", e),
                     };
                     (StatusCode::INTERNAL_SERVER_ERROR, Json(resp))
@@ -80,14 +80,8 @@ pub async fn register_guest(
         }
         Err(e) => {
             error!("Database error finding user: {:?}", e);
-            let error_user = UserPublic {
-                id: "error".to_string(),
-                username: "Error".to_string(),
-                wallet_address: "".to_string(),
-                created_at: "".to_string(),
-            };
             let resp = SignUpResponse {
-                user: error_user,
+                user: create_error_user_public(),
                 message: format!("Database error: {}", e),
             };
             (StatusCode::INTERNAL_SERVER_ERROR, Json(resp))

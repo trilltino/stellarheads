@@ -2,8 +2,6 @@ use bevy::prelude::*;
 use crate::shared::AppState;
 use shared::dto::game::{GameResult, MatchResult};
 
-#[cfg(target_arch = "wasm32")]
-
 // ================= HTTP Client for Direct Communication =================
 
 // ================= Player Information =================
@@ -314,19 +312,18 @@ pub fn send_game_result_system(
         // Spawn task to submit game result
         let game_result_clone = game_result.clone();
 
+        // Send game result via PostMessage for iframe communication
         #[cfg(target_arch = "wasm32")]
         {
-            wasm_bindgen_futures::spawn_local(async move {
-                submit_game_result_to_backend(game_result_clone).await;
-            });
+            if let Err(e) = send_game_result_via_postmessage(&game_result_clone) {
+                web_sys::console::log_1(&format!("Failed to send game result via PostMessage: {:?}", e).into());
+            }
         }
 
         #[cfg(not(target_arch = "wasm32"))]
         {
-            // For native builds, use std::thread::spawn with blocking HTTP
-            std::thread::spawn(move || {
-                submit_game_result_to_backend_blocking(game_result_clone);
-            });
+            // For native builds, just log (could add file logging here)
+            println!("Game result: {:?}", game_result_clone);
         }
     }
 }
@@ -381,85 +378,44 @@ impl Plugin for ScoringPlugin {
     }
 }
 
-// ================= HTTP Communication =================
+// ================= PostMessage Communication =================
 
-// Async version for WASM
 #[cfg(target_arch = "wasm32")]
-async fn submit_game_result_to_backend(game_result: GameResult) {
-    let backend_url = "http://127.0.0.1:3000/api/leaderboard/record";
+fn send_game_result_via_postmessage(game_result: &GameResult) -> Result<(), Box<dyn std::error::Error>> {
+    use wasm_bindgen::JsValue;
+    use serde_json;
+    use web_sys;
 
-    let request_body = serde_json::json!({
-        "player_address": game_result.player_wallet_address,
-        "username": game_result.player_username,
-        "won": matches!(game_result.player_result, shared::dto::game::MatchResult::Win)
+    // Create structured message for parent window
+    let message = serde_json::json!({
+        "type": "game_result",
+        "timestamp": chrono::Utc::now().timestamp(),
+        "data": {
+            "player_address": game_result.player_wallet_address,
+            "player_username": game_result.player_username,
+            "won": matches!(game_result.player_result, shared::dto::game::MatchResult::Win),
+            "score_left": game_result.player_score,
+            "score_right": game_result.opponent_score,
+            "match_duration_seconds": game_result.duration_seconds
+        }
     });
 
-    match reqwest::Client::new()
-        .post(backend_url)
-        .header("Content-Type", "application/json")
-        .json(&request_body)
-        .send()
-        .await
-    {
-        Ok(response) => {
-            match response.status().as_u16() {
-                200..=299 => {
-                    println!("✅ Game result submitted successfully");
-                    if let Ok(text) = response.text().await {
-                        println!("📝 Backend response: {}", text);
-                    }
-                },
-                status => {
-                    println!("⚠️ Backend returned status {}: {}", status, response.status());
-                    if let Ok(text) = response.text().await {
-                        println!("📝 Error response: {}", text);
-                    }
-                }
-            }
-        },
-        Err(e) => {
-            println!("❌ Failed to submit game result: {}", e);
-            println!("🔗 Attempted to connect to: {}", backend_url);
-        }
-    }
-}
+    // Get window object and parent reference
+    let window = web_sys::window()
+        .ok_or("No window object available")?;
 
-// Blocking version for native
-#[cfg(not(target_arch = "wasm32"))]
-fn submit_game_result_to_backend_blocking(game_result: GameResult) {
-    let backend_url = "http://127.0.0.1:3000/api/leaderboard/record";
+    let parent = window.parent()
+        .map_err(|_| "Failed to get parent window")?
+        .ok_or("No parent window available")?;
 
-    let request_body = serde_json::json!({
-        "player_address": game_result.player_wallet_address,
-        "username": game_result.player_username,
-        "won": matches!(game_result.player_result, shared::dto::game::MatchResult::Win)
-    });
+    // Convert message to JsValue
+    let js_message = JsValue::from_str(&message.to_string());
 
-    match reqwest::blocking::Client::new()
-        .post(backend_url)
-        .header("Content-Type", "application/json")
-        .json(&request_body)
-        .send()
-    {
-        Ok(response) => {
-            match response.status().as_u16() {
-                200..=299 => {
-                    println!("✅ Game result submitted successfully");
-                    if let Ok(text) = response.text() {
-                        println!("📝 Backend response: {}", text);
-                    }
-                },
-                status => {
-                    println!("⚠️ Backend returned status {}: {}", status, response.status());
-                    if let Ok(text) = response.text() {
-                        println!("📝 Error response: {}", text);
-                    }
-                }
-            }
-        },
-        Err(e) => {
-            println!("❌ Failed to submit game result: {}", e);
-            println!("🔗 Attempted to connect to: {}", backend_url);
-        }
-    }
+    // Send message to parent window with wildcard origin (can be restricted for security)
+    parent.post_message(&js_message, "*")
+        .map_err(|e| format!("PostMessage failed: {:?}", e))?;
+
+    web_sys::console::log_1(&"✅ Game result sent to parent via PostMessage".into());
+
+    Ok(())
 }

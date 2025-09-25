@@ -27,14 +27,14 @@ avian2d = { version = "0.3.1", default-features = false, features = [
     "2d", "f32", "parry-f32", "parallel"
 ] }
 
-bevy_egui = "0.36.0"
+# bevy_egui = "0.36.0"  # Moved to native-only dependencies
 # Removed leafwing-input-manager and lightyear_avian2d - not needed for single-player
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = "1.0"
 # Removed clap and cfg-if - not needed for single-player
-bevy-inspector-egui = "0.33.1"
+# bevy-inspector-egui = "0.33.1"  # Moved to native-only dependencies
 bevy_window = "0.16.1"
-egui = "0.32.2"
+# egui = "0.32.2"  # Moved to native-only dependencies
 wasm-bindgen = "0.2"
 getrandom = { version = "0.3", features = ["wasm_js"] }
 console_error_panic_hook = "0.1.6"
@@ -45,6 +45,7 @@ tokio = { version = "1.0", features = ["rt"] }
 wasm-bindgen-futures = "0.4"
 uuid = { version = "1.0", features = ["v4"] }
 rand = "0.8"
+chrono = { version = "0.4.42", features = ["serde"] }
 
 [dependencies.web-sys]
 version = "0.3.78"
@@ -63,3 +64,9 @@ incremental = true
 # [profile.dev.package."*"]
 # opt-level = 3
 # debug = false
+
+# Native-only dependencies (desktop builds)
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+bevy_egui = "0.36.0"
+bevy-inspector-egui = "0.33.1"
+egui = "0.32.2"

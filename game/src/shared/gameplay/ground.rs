@@ -40,18 +40,17 @@ fn spawn_continuous_field(commands: &mut Commands) {
 fn spawn_field_walls(commands: &mut Commands) {
     let wall_height = 1000.0;
     let wall_thickness = 60.0;
-    let screen_half_width = 1366.0 / 2.0; // 683px
+    let screen_half_width = 1366.0 / 2.0;
 
-    // Move walls INWARD by half thickness so they're actually visible and blocking
     let wall_positions = [
-        -screen_half_width + (wall_thickness / 2.0), // Left wall moved right
-        screen_half_width - (wall_thickness / 2.0),  // Right wall moved left
+        -screen_half_width + (wall_thickness / 2.0),
+        screen_half_width - (wall_thickness / 2.0),
     ];
     let wall_names = ["Left Wall", "Right Wall"];
 
     for (&x_pos, &name) in wall_positions.iter().zip(wall_names.iter()) {
         let wall_entity = commands.spawn((
-            Sprite::from_color(Color::srgba(0.8, 0.2, 0.2, 0.0), Vec2::new(wall_thickness, wall_height)), // Invisible walls
+            Sprite::from_color(Color::srgba(0.8, 0.2, 0.2, 0.0), Vec2::new(wall_thickness, wall_height)),
             Transform::from_xyz(x_pos, 0.0, 0.0),
             RigidBody::Static,
             Collider::rectangle(wall_thickness / 2.0, wall_height / 2.0),
@@ -61,7 +60,7 @@ fn spawn_field_walls(commands: &mut Commands) {
             ),
             Restitution::new(0.9),
             Friction::new(0.2),
-            ColliderDensity(1000.0), // Make walls very solid
+            ColliderDensity(1000.0),
             Name::new(name),
         )).id();
 

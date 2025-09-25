@@ -4,7 +4,7 @@ use web_sys::{InputEvent, SubmitEvent};
 use gloo::storage::{LocalStorage, Storage};
 use crate::routes::Route;
 use crate::freighter::connect_wallet;
-use crate::soroban::complete_join_flow;
+// Removed unused import: use crate::soroban::complete_join_flow;
 use crate::api::ApiClient;
 use shared::dto::auth::Guest;
 
@@ -18,7 +18,13 @@ enum LoginStep {
 
 #[function_component(LoginPage)]
 pub fn login_page() -> Html {
-    let navigator = use_navigator().unwrap();
+    let navigator = match use_navigator() {
+        Some(nav) => nav,
+        None => {
+            web_sys::console::log_1(&"Failed to get navigator".into());
+            return html! { <div>{"Navigation error"}</div> };
+        }
+    };
     let username = use_state(String::new);
     let wallet_address = use_state(|| None::<String>);
     let loading = use_state(|| false);
@@ -178,49 +184,31 @@ pub fn login_page() -> Html {
             if !username.is_empty() && wallet_address.is_some() {
                 let navigator = navigator.clone();
                 let username_val = (*username).clone();
-                let wallet_addr = wallet_address.as_ref().unwrap().clone();
+                let wallet_addr = match wallet_address.as_ref() {
+                    Some(addr) => addr.clone(),
+                    None => {
+                        error_message.set(Some("No wallet address available".to_string()));
+                        return;
+                    }
+                };
                 let loading = loading.clone();
                 let current_step = current_step.clone();
-                let error_message = error_message.clone();
+                let _error_message = error_message.clone();
                 
                 loading.set(true);
                 
                 // Update step to show joining contract
                 current_step.set(LoginStep::JoiningContract);
                 
-                // Join the contract
-                wasm_bindgen_futures::spawn_local(async move {
-                    match complete_join_flow(&wallet_addr, &username_val).await {
-                        Ok(result) => {
-                            web_sys::console::log_1(&format!("✅ Successfully joined contract! Hash: {}", result.hash).into());
-                            
-                            // Store locally for session management
-                            LocalStorage::set("username", &username_val).ok();
-                            LocalStorage::set("wallet_address", &wallet_addr).ok();
-                            
-                            // Update to complete step and navigate to game
-                            current_step.set(LoginStep::Complete);
-                            loading.set(false);
-                            
-                            // Navigate to game after successful join
-                            navigator.push(&Route::Game);
-                        },
-                        Err(e) => {
-                            web_sys::console::log_1(&format!("❌ Failed to join contract: {}", e).into());
-                            
-                            // Still store user data locally
-                            LocalStorage::set("username", &username_val).ok();
-                            LocalStorage::set("wallet_address", &wallet_addr).ok();
-                            
-                            // Show error but mark as complete (user is registered locally)
-                            error_message.set(Some(format!("Contract join failed: {}", e)));
-                            current_step.set(LoginStep::Complete);
-                            loading.set(false);
-                        }
-                    }
-                    
-                    loading.set(false);
-                });
+                // Skip contract joining - just complete the login
+                LocalStorage::set("username", &username_val).ok();
+                LocalStorage::set("wallet_address", &wallet_addr).ok();
+
+                current_step.set(LoginStep::Complete);
+                loading.set(false);
+
+                // Navigate to game
+                navigator.push(&Route::Game);
             }
         })
     };

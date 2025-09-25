@@ -73,7 +73,7 @@ pub async fn post_join_contract(
 
     console::log_1(&format!("🚀 Creating join transaction for user: {}", username).into());
 
-    let response = Request::post("http://localhost:3000/join")
+    let response = Request::post("/join")
         .header("Content-Type", "application/json")
         .json(&request)
         .map_err(|e| format!("Failed to serialize request: {}", e))?
@@ -122,7 +122,7 @@ pub async fn complete_join_flow(
         "player_address": player_address
     });
 
-    let response = Request::post("http://localhost:3000/submit-signed-transaction")
+    let response = Request::post("/submit-signed-transaction")
         .header("Content-Type", "application/json")
         .json(&submit_request)
         .map_err(|e| format!("Failed to serialize submit request: {}", e))?
@@ -147,7 +147,7 @@ pub async fn complete_join_flow(
     Ok(result)
 }
 
-/// Sign transaction with Freighter wallet
+
 pub async fn sign_transaction_with_freighter(
     transaction_xdr: &str,
     network_passphrase: &str,
@@ -158,7 +158,7 @@ pub async fn sign_transaction_with_freighter(
         .get("freighterApi")
         .ok_or("Freighter API not found")?;
 
-    // Create signing options
+
     let options = js_sys::Object::new();
     js_sys::Reflect::set(
         &options,
@@ -167,13 +167,10 @@ pub async fn sign_transaction_with_freighter(
     )
     .map_err(|_| "Failed to set network passphrase")?;
 
-    // Sign the transaction
     let sign_promise = signTransaction(transaction_xdr, &options.into());
     let sign_result = JsFuture::from(sign_promise)
         .await
         .map_err(|e| format!("Freighter signing failed: {:?}", e))?;
-
-    // Parse the signed XDR
     let signed_xdr = js_sys::Reflect::get(&sign_result, &"signedTxXdr".into())
         .map_err(|_| "Failed to get signed XDR")?
         .as_string()

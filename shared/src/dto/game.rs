@@ -3,38 +3,43 @@ use chrono::{DateTime, Utc};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct GameResult {
-    // Player identification
     pub player_username: String,
     pub player_wallet_address: String,
 
-    // Game outcome for this specific player
-    pub player_result: MatchResult, // Win/Loss/Draw from player's perspective
+    pub player_result: MatchResult,
 
-    // Scores
-    pub player_score: u32,    // This player's score
-    pub opponent_score: u32,  // AI or opponent score
+    pub player_score: u32,
+    pub opponent_score: u32,
 
-    // Game session info
-    pub game_session_id: String, // UUID for this game instance (required)
-    pub game_mode: String,    // "single_player", "multiplayer", etc.
+    pub game_session_id: String,
+    pub game_mode: String,
 
-    // Performance metrics
     pub duration_seconds: f32,
 
     pub timestamp: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct GameScore {
     pub left_team: u32,
     pub right_team: u32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum MatchResult {
     Win,
     Loss,
     Draw,
+}
+
+impl std::fmt::Display for MatchResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MatchResult::Win => write!(f, "Win"),
+            MatchResult::Loss => write!(f, "Loss"),
+            MatchResult::Draw => write!(f, "Draw"),
+        }
+    }
 }
 
 impl GameResult {
@@ -45,7 +50,7 @@ impl GameResult {
         player_score: u32,
         opponent_score: u32,
         duration_seconds: f32,
-        game_session_id: String, // Require game session ID to be passed in
+        game_session_id: String,
     ) -> Self {
         Self {
             player_username,

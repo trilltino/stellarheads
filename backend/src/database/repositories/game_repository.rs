@@ -1,4 +1,4 @@
-use crate::database::models::GameInstance;
+use crate::database::models::{GameInstance, PlayerStats, LeaderboardEntry};
 use crate::database::connection::DbPool;
 use sqlx::{Error as SqlxError};
 use bigdecimal::ToPrimitive;
@@ -6,7 +6,6 @@ use bigdecimal::ToPrimitive;
 pub struct GameRepository;
 
 impl GameRepository {
-    /// Create a new game instance record
     pub async fn create_game_instance(
         pool: &DbPool,
         game_instance: &GameInstance,
@@ -49,7 +48,6 @@ impl GameRepository {
         })
     }
 
-    /// Get game instances for a specific player by wallet address
     pub async fn get_player_games(
         pool: &DbPool,
         wallet_address: &str,
@@ -90,7 +88,6 @@ impl GameRepository {
             .collect())
     }
 
-    /// Get player statistics (wins, losses, draws)
     pub async fn get_player_stats(
         pool: &DbPool,
         wallet_address: &str,
@@ -126,7 +123,6 @@ impl GameRepository {
         })
     }
 
-    /// Get recent games across all players (for general leaderboard)
     pub async fn get_recent_games(
         pool: &DbPool,
         limit: Option<i64>,
@@ -164,7 +160,6 @@ impl GameRepository {
             .collect())
     }
 
-    /// Get top players by wins
     pub async fn get_leaderboard(
         pool: &DbPool,
         limit: Option<i64>,
@@ -204,22 +199,4 @@ impl GameRepository {
     }
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct PlayerStats {
-    pub wins: u32,
-    pub losses: u32,
-    pub draws: u32,
-    pub total_games: u32,
-    pub avg_duration: f32,
-    pub avg_score: f32,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct LeaderboardEntry {
-    pub username: String,
-    pub wallet_address: String,
-    pub wins: u32,
-    pub losses: u32,
-    pub draws: u32,
-    pub total_games: u32,
-}
+// PlayerStats and LeaderboardEntry moved to models.rs for better organization

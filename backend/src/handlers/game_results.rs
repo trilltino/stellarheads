@@ -4,18 +4,16 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use crate::database::connection::DbPool;
-use crate::database::repositories::game_repository::{GameRepository, PlayerStats, LeaderboardEntry};
+use crate::database::repositories::game_repository::GameRepository;
 use crate::database::repositories::user_repository::UserRepository;
-use crate::database::models::GameInstance;
-
-// ================= REQUEST/RESPONSE TYPES =================
+use crate::database::models::{GameInstance, PlayerStats, LeaderboardEntry};
 
 #[derive(Debug, Deserialize)]
 pub struct StoreGameResultRequest {
     pub game_session_id: String,
     pub player_username: String,
     pub player_wallet_address: String,
-    pub player_result: String, // "Win", "Loss", "Draw"
+    pub player_result: String,
     pub player_score: i32,
     pub opponent_score: i32,
     pub duration_seconds: f32,
@@ -64,20 +62,15 @@ pub struct LeaderboardResponse {
     pub total_entries: usize,
 }
 
-// ================= HANDLER FUNCTIONS =================
-
-/// Store a completed game result in the database
 pub async fn store_game_result(
     State(pool): State<DbPool>,
     Json(req): Json<StoreGameResultRequest>,
 ) -> Result<(StatusCode, Json<StoreGameResultResponse>), (StatusCode, Json<serde_json::Value>)> {
     println!("📊 Storing game result: {:?}", req);
 
-    // Find or create user
     let user = match UserRepository::find_by_wallet_address(&pool, &req.player_wallet_address).await {
         Ok(Some(existing_user)) => Some(existing_user),
         Ok(None) => {
-            // Create user if doesn't exist
             match UserRepository::create_guest(&pool, &req.player_username, &req.player_wallet_address).await {
                 Ok(new_user) => Some(new_user),
                 Err(e) => {
@@ -92,7 +85,6 @@ pub async fn store_game_result(
         }
     };
 
-    // Create game instance
     let game_instance = GameInstance::new(
         user.as_ref().map(|u| u.id),
         req.game_session_id,
@@ -126,7 +118,6 @@ pub async fn store_game_result(
     }
 }
 
-/// Get player statistics
 pub async fn get_player_stats(
     State(pool): State<DbPool>,
     Query(params): Query<PlayerStatsQuery>,
@@ -149,7 +140,6 @@ pub async fn get_player_stats(
     }
 }
 
-/// Get player's game history
 pub async fn get_player_games(
     State(pool): State<DbPool>,
     Query(params): Query<PlayerGamesQuery>,
@@ -173,7 +163,6 @@ pub async fn get_player_games(
     }
 }
 
-/// Get leaderboard (top players by wins)
 pub async fn get_database_leaderboard(
     State(pool): State<DbPool>,
     Query(params): Query<LeaderboardQuery>,
@@ -196,10 +185,9 @@ pub async fn get_database_leaderboard(
     }
 }
 
-/// Get recent games across all players
 pub async fn get_recent_games(
     State(pool): State<DbPool>,
-    Query(params): Query<LeaderboardQuery>, // Reuse same query params (limit)
+    Query(params): Query<LeaderboardQuery>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), (StatusCode, Json<serde_json::Value>)> {
     match GameRepository::get_recent_games(&pool, params.limit).await {
         Ok(games) => {

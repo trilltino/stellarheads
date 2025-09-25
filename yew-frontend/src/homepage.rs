@@ -6,24 +6,21 @@ use crate::loginpage::LoginPage;
 #[function_component(HomePage)]
 pub fn home_page() -> Html {
     let show_login = use_state(|| false);
-
     let on_get_started = {
         let show_login = show_login.clone();
         Callback::from(move |_| {
             show_login.set(true);
         })
     };
-
+    
     let on_close_login = {
         let show_login = show_login.clone();
         Callback::from(move |_| {
             show_login.set(false);
         })
     };
-
     html! {
         <>
-            // Login Modal
             {
                 if *show_login {
                     html! {
@@ -41,7 +38,6 @@ pub fn home_page() -> Html {
                 }
             }
 
-            // Hero Section
             <section class="hero-section">
                 <div class="hero-container">
                     <div class="hero-content">
@@ -88,7 +84,7 @@ pub fn home_page() -> Html {
                 </div>
             </section>
 
-            // Features Section
+
             <section class="features-section">
                 <div class="features-container">
                     <h2 class="section-title">{"Why Choose Stellar Heads?"}</h2>
@@ -117,7 +113,7 @@ pub fn home_page() -> Html {
                 </div>
             </section>
 
-            // Stats Section
+
             <section class="stats-section">
                 <div class="stats-container">
                     <div class="stats-grid">
@@ -141,7 +137,7 @@ pub fn home_page() -> Html {
                 </div>
             </section>
 
-            // CTA Section
+
             <section class="cta-section">
                 <div class="cta-container">
                     <h2>{"Ready to Start Playing?"}</h2>

@@ -42,7 +42,11 @@
       "Read(//c/Users/isich/xforcesoltions_beta/**)",
       "Bash(copy \"..\\..\\..\\game\\pkg\\stellar_heads_game.js\" .)",
       "Bash(start http://localhost:8080/game)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(copy:*)",
+      "Bash(echo \"🎯 PostMessage Bridge Implementation Complete! 🎯\n\n✅ Game iframe: localhost:3000/game/index.html (Fixed 404 issue)\n✅ Frontend app: localhost:8080 (PostMessage listener active)  \n✅ Backend API: localhost:3000/api/games/store (Ready for game results)\n✅ Database: Connected and ready\n\n🎮 TEST THE FLOW:\n1. Open http://localhost:8080\n2. Connect wallet and enter game\n3. Play a match to completion (5 goals or timer expires)\n4. Game result should be sent via PostMessage to backend\n5. Check browser console and backend logs for confirmation\n\nCommunication Flow:\nGame → PostMessage → Parent Window → HTTP POST → Backend → Database\")",
+      "Bash(start:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []

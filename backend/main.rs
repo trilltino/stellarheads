@@ -1,10 +1,7 @@
-// src/main.rs
-
 use backend::{create_app, create_pool};
 
 #[tokio::main]
 async fn main() {
-    // Load .env early so DB config is available
     dotenvy::dotenv().ok();
 
     let pool = create_pool()
@@ -25,7 +22,6 @@ async fn main() {
 }
 
 async fn shutdown_signal() {
-    // Ctrl+C to stop
     let _ = tokio::signal::ctrl_c().await;
     println!("shutdown received");
 }

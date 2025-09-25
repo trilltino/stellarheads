@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_egui::{egui, EguiContexts};
+use bevy_egui::{egui, EguiContexts, EguiPrimaryContextPass};
 use crate::shared::scoring::{Score, GameTimer, ScoreNotifications, GoalTeam};
 
 // ================= STATES =================
@@ -447,6 +447,11 @@ impl Plugin for UIPlugin {
                 (score_ui_system, score_notifications_system)
                     .run_if(in_state(AppState::InGame)),
             );
+        }
+        // WASM version - no EGUI systems needed
+        #[cfg(target_arch = "wasm32")]
+        {
+            // Add any WASM-specific UI systems here if needed in the future
         }
     }
 }

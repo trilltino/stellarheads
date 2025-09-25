@@ -9,9 +9,8 @@ use std::net::SocketAddr;
 use tracing::{info, error};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-// SPA fallback handler
 async fn spa_fallback(_uri: Uri) -> Result<Response, StatusCode> {
-    match tokio::fs::read_to_string("../yew-frontend/dist/index.html").await {
+    match tokio::fs::read_to_string(FALLBACK_INDEX_PATH).await {
         Ok(content) => Ok(Response::builder()
             .status(StatusCode::OK)
             .header("content-type", "text/html")
@@ -25,6 +24,11 @@ async fn spa_fallback(_uri: Uri) -> Result<Response, StatusCode> {
 }
 
 use backend::database::connection::create_pool;
+
+const SERVER_ADDR: ([u8; 4], u16) = ([127, 0, 0, 1], 3000);
+const FRONTEND_DIST_PATH: &str = "../yew-frontend/dist";
+const GAME_ASSETS_PATH: &str = "backend/static/game";
+const FALLBACK_INDEX_PATH: &str = "../yew-frontend/dist/index.html";
 use backend::handlers::{
     auth::register_guest,
     leaderboard::{
@@ -47,7 +51,6 @@ use backend::handlers::{
 
 #[tokio::main]
 async fn main() {
-    // Initialize tracing
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -56,10 +59,8 @@ async fn main() {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    // Load environment variables
     dotenvy::dotenv().ok();
 
-    // Create database pool
     let pool = match create_pool().await {
         Ok(pool) => {
             info!("Database connection established");
@@ -73,9 +74,7 @@ async fn main() {
     };
 
     let app = Router::new()
-        // Auth routes
         .route("/api/auth/register-guest", post(register_guest))
-        // Blockchain Leaderboard API routes
         .route("/api/leaderboard/join", post(join_leaderboard))
         .route("/api/leaderboard/record", post(record_game_result))
         .route("/api/leaderboard/submit", post(submit_leaderboard_transaction))
@@ -83,30 +82,31 @@ async fn main() {
         .route("/api/leaderboard", get(get_leaderboard))
         .route("/api/leaderboard/check", get(check_leaderboard_joined))
         .route("/api/leaderboard/test-add-win", get(test_add_win))
-        // Database Game Results API routes
         .route("/api/games/store", post(store_game_result))
         .route("/api/games/player-stats", get(get_database_player_stats))
         .route("/api/games/player-games", get(get_player_games))
         .route("/api/games/leaderboard", get(get_database_leaderboard))
         .route("/api/games/recent", get(get_recent_games))
 
-        // Serve game WASM files at /game
-        .nest_service("/game", ServeDir::new("static/game"))
-        // Serve static frontend assets
-        .nest_service("/static", ServeDir::new("../yew-frontend/dist"))
-        // SPA fallback for all other routes
+        .nest_service("/game", ServeDir::new(GAME_ASSETS_PATH))
+        .nest_service("/static", ServeDir::new(FRONTEND_DIST_PATH))
         .fallback(spa_fallback)
         .with_state(pool)
         .layer(CorsLayer::permissive());
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    let addr = SocketAddr::from(SERVER_ADDR);
     info!("Backend server running on http://{}", addr);
 
-    let listener = tokio::net::TcpListener::bind(addr)
-        .await
-        .expect("Failed to bind to address");
+    let listener = match tokio::net::TcpListener::bind(addr).await {
+        Ok(listener) => listener,
+        Err(e) => {
+            error!("Failed to bind to address {}: {}", addr, e);
+            std::process::exit(1);
+        }
+    };
 
-    axum::serve(listener, app)
-        .await
-        .expect("Server failed to start");
+    if let Err(e) = axum::serve(listener, app).await {
+        error!("Server failed to start: {}", e);
+        std::process::exit(1);
+    }
 }

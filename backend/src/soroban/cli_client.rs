@@ -1,5 +1,12 @@
 use serde::{Serialize, Deserialize};
 use tokio::process::Command as AsyncCommand;
+use tracing::info;
+
+// Network constants
+const TESTNET_RPC_URL: &str = "https://soroban-testnet.stellar.org:443";
+const TESTNET_PASSPHRASE: &str = "Test SDF Network ; September 2015";
+const MAINNET_PASSPHRASE: &str = "Public Global Stellar Network ; September 2015";
+// Removed DEFAULT_SOURCE_ACCOUNT - was unused
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TransactionRequest {
@@ -10,21 +17,28 @@ pub struct TransactionRequest {
 pub struct SorobanCliClient {
     contract_address: String,
     network: String,
+    rpc_url: String,
+    network_passphrase: String,
 }
 
 impl SorobanCliClient {
     pub fn new(contract_address: String, use_testnet: bool) -> Self {
-        let network = if use_testnet { "testnet" } else { "mainnet" };
+        let (network, rpc_url, network_passphrase) = if use_testnet {
+            ("testnet", TESTNET_RPC_URL, TESTNET_PASSPHRASE)
+        } else {
+            ("mainnet", "https://horizon.stellar.org", MAINNET_PASSPHRASE)
+        };
 
         Self {
             contract_address,
             network: network.to_string(),
+            rpc_url: rpc_url.to_string(),
+            network_passphrase: network_passphrase.to_string(),
         }
     }
 
-    /// Check if a player has joined the leaderboard
     pub async fn has_joined(&self, player_address: &str) -> Result<bool, Box<dyn std::error::Error>> {
-        println!("Checking if {} has joined via CLI", player_address);
+        info!("Checking if {} has joined via CLI", player_address);
 
         let output = AsyncCommand::new("stellar")
             .args([
@@ -32,8 +46,8 @@ impl SorobanCliClient {
                 "--id", &self.contract_address,
                 "--source-account", player_address,
                 "--network", &self.network,
-                "--rpc-url", "https://soroban-testnet.stellar.org:443",
-                "--network-passphrase", "Test SDF Network ; September 2015",
+                "--rpc-url", &self.rpc_url,
+                "--network-passphrase", &self.network_passphrase,
                 "--send", "no",
                 "--", "has_joined",
                 "--player", player_address
@@ -49,19 +63,17 @@ impl SorobanCliClient {
             println!("CLI stderr: {}", stderr);
         }
 
-        // Parse the boolean result
         let result = stdout.trim();
         match result {
             "true" => Ok(true),
             "false" => Ok(false),
             _ => {
                 println!("⚠️ Unexpected CLI response: {}", result);
-                Ok(false) // Default to false for safety
+                Ok(false)
             }
         }
     }
 
-    /// Generate XDR for joining the leaderboard
     pub async fn create_join_transaction(&self, player_address: &str) -> Result<TransactionRequest, Box<dyn std::error::Error>> {
         println!("🎯 Generating JOIN XDR for {} via CLI", player_address);
 
@@ -83,7 +95,6 @@ impl SorobanCliClient {
         self.parse_xdr_response(output, "join").await
     }
 
-    /// Generate XDR for adding a win
     pub async fn create_add_win_transaction(&self, player_address: &str) -> Result<TransactionRequest, Box<dyn std::error::Error>> {
         println!("🏆 Generating ADD_WIN XDR for {} via CLI", player_address);
 
@@ -105,7 +116,6 @@ impl SorobanCliClient {
         self.parse_xdr_response(output, "add_win").await
     }
 
-    /// Get player's own wins
     pub async fn get_my_wins(&self, player_address: &str) -> Result<u32, Box<dyn std::error::Error>> {
         println!("🏅 Getting wins for {} via CLI", player_address);
 
@@ -132,7 +142,6 @@ impl SorobanCliClient {
             println!("Wins stderr: {}", stderr);
         }
 
-        // Parse the number result
         let result = stdout.trim();
         match result.parse::<u32>() {
             Ok(wins) => Ok(wins),
@@ -143,7 +152,6 @@ impl SorobanCliClient {
         }
     }
 
-    /// Get any player's wins
     pub async fn get_wins(&self, player_address: &str) -> Result<u32, Box<dyn std::error::Error>> {
         println!("📊 Getting wins for {} via CLI", player_address);
 
@@ -151,7 +159,7 @@ impl SorobanCliClient {
             .args([
                 "contract", "invoke",
                 "--id", &self.contract_address,
-                "--source-account", "GDMQ5IHBNYVXDRZNGZ2UVSFHB2E47BXK2P4QFACU7DO6MFDOWD6C7677", // Default source
+                "--source-account", "GDMQ5IHBNYVXDRZNGZ2UVSFHB2E47BXK2P4QFACU7DO6MFDOWD6C7677",
                 "--network", &self.network,
                 "--rpc-url", "https://soroban-testnet.stellar.org:443",
                 "--network-passphrase", "Test SDF Network ; September 2015",
@@ -170,7 +178,6 @@ impl SorobanCliClient {
             println!("Wins stderr: {}", stderr);
         }
 
-        // Parse the number result
         let result = stdout.trim();
         match result.parse::<u32>() {
             Ok(wins) => Ok(wins),
@@ -181,7 +188,6 @@ impl SorobanCliClient {
         }
     }
 
-    /// Submit a signed transaction
     pub async fn submit_transaction(&self, signed_xdr: &str) -> Result<u32, Box<dyn std::error::Error>> {
         println!("📡 Submitting signed transaction via CLI");
 
@@ -205,15 +211,18 @@ impl SorobanCliClient {
         }
 
         if output.status.success() {
-            // Try to extract ledger number from response
-            // This is a simplified parser - adjust based on actual CLI output format
-            Ok(12345) // Placeholder - parse actual ledger from CLI response
+            // Parse ledger sequence from output
+            if let Some(ledger_line) = stdout.lines().find(|line| line.contains("ledger") || line.contains("sequence")) {
+                if let Some(ledger_str) = ledger_line.split_whitespace().find(|s| s.chars().all(|c| c.is_numeric())) {
+                    return Ok(ledger_str.parse().unwrap_or(0));
+                }
+            }
+            Ok(0) // Default if we can't parse ledger
         } else {
             Err(format!("Transaction submission failed: {}", stderr).into())
         }
     }
 
-    /// Parse XDR response from CLI output
     async fn parse_xdr_response(&self, output: std::process::Output, operation: &str) -> Result<TransactionRequest, Box<dyn std::error::Error>> {
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -230,12 +239,9 @@ impl SorobanCliClient {
             return Err(format!("CLI command failed for {}: {}", operation, stderr).into());
         }
 
-        // Look for XDR in the output
-        // The CLI typically outputs XDR in a specific format
         let xdr = if let Some(xdr_line) = stdout.lines().find(|line| line.contains("XDR") || line.starts_with("AAAA")) {
             xdr_line.trim().to_string()
         } else {
-            // If no XDR found, the stdout might be the XDR itself
             stdout.trim().to_string()
         };
 

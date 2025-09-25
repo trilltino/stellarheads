@@ -1,9 +1,42 @@
 use yew::prelude::*;
 use gloo::storage::{LocalStorage, Storage};
-use web_sys::console;
+use web_sys::{console, MessageEvent};
+use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::spawn_local;
+use serde::{Deserialize, Serialize};
+use gloo::events::EventListener;
 use crate::freighter::{connect_wallet, is_freighter_available};
-use crate::soroban::complete_join_flow;
+// Removed unused import: use crate::soroban::complete_join_flow;
+
+#[derive(Debug, Deserialize)]
+struct GameResultMessage {
+    #[serde(rename = "type")]
+    message_type: String,
+    timestamp: i64,
+    data: GameResultData,
+}
+
+#[derive(Debug, Deserialize)]
+struct GameResultData {
+    player_address: String,
+    player_username: String,
+    won: Option<bool>,
+    score_left: i32,
+    score_right: i32,
+    match_duration_seconds: f64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct StoreGameResultRequest {
+    game_session_id: String,
+    player_username: String,
+    player_wallet_address: String,
+    player_result: String,
+    player_score: i32,
+    opponent_score: i32,
+    duration_seconds: f32,
+    game_mode: String,
+}
 
 #[function_component(GamePage)]
 pub fn game_page() -> Html {
@@ -11,8 +44,7 @@ pub fn game_page() -> Html {
     let wallet_address = use_state(|| None::<String>);
     let loading = use_state(|| true);
     let error_message = use_state(|| None::<String>);
-    let joining_contract = use_state(|| false);
-    let join_result = use_state(|| None::<String>);
+    // Removed joining_contract and join_result state variables - were unused
 
     // ===== On mount: load wallet =====
     {
@@ -54,38 +86,79 @@ pub fn game_page() -> Html {
         });
     }
 
-    // ===== Component mount log and game initialization =====
-    let game_initialized = use_state(|| false);
-
+    // ===== Component mount log =====
     {
-        let game_initialized = game_initialized.clone();
         let wallet_address = wallet_address.clone();
 
         use_effect_with(wallet_address.clone(), move |wallet_addr| {
-            // Only initialize game when wallet is connected and game hasn't been initialized yet
-            if wallet_addr.is_some() && !*game_initialized {
+            if wallet_addr.is_some() {
                 console::log_1(&"GamePage component mounted".into());
+                console::log_1(&"Game will load in iframe".into());
+            }
+        });
+    }
 
-                let game_initialized = game_initialized.clone();
+    // ===== PostMessage listener for game results =====
+    {
+        let wallet_address = wallet_address.clone();
+        let username = username.clone();
 
-                // Load and initialize the game WASM module
-                wasm_bindgen_futures::spawn_local(async move {
-                    // Small delay to ensure canvas is in DOM
-                    gloo::timers::future::sleep(std::time::Duration::from_millis(500)).await;
+        use_effect_with(wallet_address.clone(), move |wallet_addr| {
+            if let Some(wallet) = &**wallet_addr {
+                console::log_1(&"🎧 Setting up PostMessage listener for game results".into());
 
-                    console::log_1(&"Loading Stellar Heads game WASM...".into());
+                let wallet_clone = wallet.clone();
+                let username_clone = (*username).clone();
 
-                    // Load the game WASM from the backend
-                    match load_game_wasm().await {
-                        Ok(_) => {
-                            game_initialized.set(true);
-                            console::log_1(&"Game initialization completed successfully".into());
-                        },
-                        Err(e) => {
-                            console::log_1(&format!("Failed to load game: {}", e).into());
+                let window = web_sys::window().unwrap();
+                let listener = EventListener::new(&window, "message", move |event| {
+                    let message_event = event.dyn_ref::<MessageEvent>().unwrap();
+                    let data = message_event.data();
+
+                    // Try to parse as string first, then as JSON
+                    if let Some(message_str) = data.as_string() {
+                        match serde_json::from_str::<GameResultMessage>(&message_str) {
+                            Ok(game_message) => {
+                                if game_message.message_type == "game_result" {
+                                    console::log_1(&"🎮 Received game result from iframe!".into());
+
+                                    // Transform data for backend API
+                                    let player_result = match game_message.data.won {
+                                        Some(true) => "Win".to_string(),
+                                        Some(false) => "Loss".to_string(),
+                                        None => "Draw".to_string(),
+                                    };
+
+                                    let api_request = StoreGameResultRequest {
+                                        game_session_id: format!("session_{}", game_message.timestamp),
+                                        player_username: username_clone.clone(),
+                                        player_wallet_address: wallet_clone.clone(),
+                                        player_result,
+                                        player_score: game_message.data.score_left,
+                                        opponent_score: game_message.data.score_right,
+                                        duration_seconds: game_message.data.match_duration_seconds as f32,
+                                        game_mode: "single_player_vs_ai".to_string(),
+                                    };
+
+                                    // Send to backend
+                                    let api_request_clone = api_request.clone();
+                                    spawn_local(async move {
+                                        match send_game_result_to_backend(api_request_clone).await {
+                                            Ok(_) => console::log_1(&"✅ Game result sent to backend successfully!".into()),
+                                            Err(e) => console::log_1(&format!("❌ Failed to send game result to backend: {:?}", e).into()),
+                                        }
+                                    });
+                                }
+                            }
+                            Err(_) => {
+                                // Not a game result message, ignore
+                            }
                         }
                     }
                 });
+
+                // Store the listener to keep it alive without explicit leak
+                std::mem::forget(listener);
             }
         });
     }
@@ -119,39 +192,7 @@ pub fn game_page() -> Html {
         })
     };
 
-    let _on_join_contract = {
-        let wallet_address = wallet_address.clone();
-        let username = username.clone();
-        let joining_contract = joining_contract.clone();
-        let join_result = join_result.clone();
-
-        Callback::from(move |_: web_sys::MouseEvent| {
-            let wallet_addr = wallet_address.as_ref().unwrap().clone();
-            let username_val: String = (*username).clone();
-
-            joining_contract.set(true);
-            join_result.set(None);
-
-            let joining_contract = joining_contract.clone();
-            let join_result = join_result.clone();
-
-            spawn_local(async move {
-                match complete_join_flow(&wallet_addr, &username_val).await {
-                    Ok(result) => {
-                        join_result.set(Some(format!(
-                            "✅ Joined! Tx: {}...{}",
-                            &result.hash[0..8],
-                            &result.hash[result.hash.len()-8..]
-                        )));
-                    }
-                    Err(e) => {
-                        join_result.set(Some(format!("❌ Failed: {}", e)));
-                    }
-                }
-                joining_contract.set(false);
-            });
-        })
-    };
+    // Contract join functionality removed - was unused dead code
 
     // ===== Conditional Rendering =====
     if *loading {
@@ -189,7 +230,11 @@ pub fn game_page() -> Html {
             </div>
 
             <div class="game-area">
-                <canvas id="stellar-heads-canvas"></canvas>
+                <iframe
+                    src="/game/index.html"
+                    id="stellar-heads-frame"
+                    title="Stellar Heads Game">
+                </iframe>
             </div>
 
             <div class="game-controls">
@@ -248,16 +293,15 @@ pub fn game_page() -> Html {
                     min-height: 600px;
                 }
 
-                #stellar-heads-canvas {
+                #stellar-heads-frame {
                     width: 1366px;
                     height: 768px;
                     max-width: 100%;
                     max-height: 100%;
-                    border: 2px solid rgba(255, 255, 255, 0.2);
                     border-radius: 12px;
                     background: #000;
                     display: block;
-                    cursor: crosshair;
+                    border: none;
                 }
 
                 .game-controls {
@@ -285,115 +329,25 @@ pub fn game_page() -> Html {
     }
 }
 
-async fn load_game_wasm() -> Result<(), String> {
-    use wasm_bindgen::prelude::*;
-    use web_sys::{HtmlScriptElement, Document, Window};
+async fn send_game_result_to_backend(request: StoreGameResultRequest) -> Result<(), Box<dyn std::error::Error>> {
+    use gloo::net::http::Request;
 
-    let window: Window = web_sys::window().ok_or("No window object")?;
-    let document: Document = window.document().ok_or("No document object")?;
+    console::log_1(&format!("📡 Sending game result to backend: {:?}", request).into());
 
-    // Check if canvas exists
-    if document.get_element_by_id("stellar-heads-canvas").is_none() {
-        return Err("Canvas element not found".to_string());
+    let response = Request::post("/api/games/store")
+        .header("Content-Type", "application/json")
+        .json(&request)?
+        .send()
+        .await?;
+
+    if response.ok() {
+        console::log_1(&"✅ Backend confirmed game result received".into());
+        Ok(())
+    } else {
+        let status = response.status();
+        let error_text = response.text().await.unwrap_or("Unknown error".to_string());
+        console::log_1(&format!("❌ Backend error ({}): {}", status, error_text).into());
+        Err(format!("Backend error: {} - {}", status, error_text).into())
     }
-
-    console::log_1(&"Canvas found, loading game WASM...".into());
-
-    // Create script element to load the game WASM
-    let script: HtmlScriptElement = document
-        .create_element("script")
-        .map_err(|e| format!("Failed to create element: {:?}", e))?
-        .dyn_into()
-        .map_err(|_| "Failed to create script element")?;
-
-    script.set_type("module");
-    script.set_text_content(Some(r#"
-        // Try to load the game using a simple fetch approach instead of ES modules
-        async function loadGame() {
-            // Prevent multiple initialization attempts
-            if (window.stellarHeadsGameInitialized) {
-                console.log('🎮 Game already initialized, skipping...');
-                return;
-            }
-
-            // Mark as initializing to prevent concurrent attempts
-            if (window.stellarHeadsGameInitializing) {
-                console.log('🎮 Game initialization already in progress, skipping...');
-                return;
-            }
-
-            window.stellarHeadsGameInitializing = true;
-
-            try {
-                console.log('🎮 Initializing Stellar Heads WASM...');
-
-                // Clean up any previous instances
-                if (window.stellarHeadsGameInstance) {
-                    console.log('🧹 Cleaning up previous game instance...');
-                    try {
-                        window.stellarHeadsGameInstance = null;
-                    } catch (e) {
-                        console.warn('Warning: Could not clean up previous instance:', e);
-                    }
-                }
-
-                // Load the game script directly
-                const gameScript = document.createElement('script');
-                gameScript.type = 'module';
-                gameScript.innerHTML = `
-                    import init, { main_js } from 'http://localhost:3000/game/stellar_heads_game.js';
-
-                    try {
-                        await init('http://localhost:3000/game/stellar_heads_game_bg.wasm');
-                        console.log('✅ WASM loaded, starting game...');
-                        window.stellarHeadsGameInstance = main_js();
-                        window.stellarHeadsGameInitialized = true;
-                        window.stellarHeadsGameInitializing = false;
-                        console.log('✅ Bevy game started successfully!');
-
-                        // Auto-start game by simulating key press after a delay
-                        setTimeout(() => {
-                            console.log('🚀 Auto-starting game...');
-                            // Simulate Space key press to start game
-                            const canvas = document.getElementById('stellar-heads-canvas');
-                            if (canvas) {
-                                canvas.focus();
-                                const event = new KeyboardEvent('keydown', { code: 'Space', key: ' ' });
-                                canvas.dispatchEvent(event);
-
-                                // Also try Enter key
-                                setTimeout(() => {
-                                    const enterEvent = new KeyboardEvent('keydown', { code: 'Enter', key: 'Enter' });
-                                    canvas.dispatchEvent(enterEvent);
-                                }, 500);
-                            }
-                        }, 2000);
-                    } catch (error) {
-                        console.error('❌ Failed to load game:', error);
-                        window.stellarHeadsGameInitialized = false;
-                        window.stellarHeadsGameInitializing = false;
-                        window.stellarHeadsGameInstance = null;
-                    }
-                `;
-                document.head.appendChild(gameScript);
-
-            } catch (error) {
-                console.error('❌ Failed to load game:', error);
-                // Reset flags on error to allow retry
-                window.stellarHeadsGameInitialized = false;
-                window.stellarHeadsGameInitializing = false;
-                window.stellarHeadsGameInstance = null;
-            }
-        }
-
-        loadGame();
-    "#));
-
-    document
-        .head()
-        .ok_or("No head element")?
-        .append_child(&script)
-        .map_err(|e| format!("Failed to append script: {:?}", e))?;
-
-    Ok(())
 }
+

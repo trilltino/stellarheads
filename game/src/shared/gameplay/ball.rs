@@ -6,8 +6,6 @@ use bevy::prelude::*;
 use bevy_inspector_egui::prelude::*;
 
 
-// ================= Ball =================
-
 #[derive(Component, Reflect, InspectorOptions)]
 #[reflect(Component, InspectorOptions)]
 pub struct Ball {
@@ -29,10 +27,8 @@ pub struct Ball {
 
 #[derive(Bundle)]
 pub struct BallBundle {
-    // visuals
     sprite: Sprite,
     transform: Transform,
-    // physics
     rigid_body: RigidBody,
     collider: Collider,
     restitution: Restitution,
@@ -42,7 +38,6 @@ pub struct BallBundle {
     velocity: LinearVelocity,
     collider_density: ColliderDensity,
     layers: avian2d::prelude::CollisionLayers,
-    // tag
     ball: Ball,
 }
 
@@ -102,7 +97,6 @@ pub fn spawn_ball(
     let ball_radius = 24.0; // Increased size for better visibility and gameplay
     let spawn_height = 100.0; // Lower spawn height to prevent falling through
 
-    // Load the ball texture
     let ball_texture = asset_server.load("ball/ball.png");
 
     let ball_entity = commands.spawn((
@@ -122,7 +116,6 @@ pub fn spawn_ball(
 }
 
 
-// ================= Plugin =================
 
 pub struct BallPlugin;
 

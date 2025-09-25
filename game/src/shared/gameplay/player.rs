@@ -47,7 +47,7 @@ pub enum AiBehavior {
 impl Default for AiPlayer {
     fn default() -> Self {
         Self {
-            decision_timer: Timer::from_seconds(0.5, TimerMode::Repeating), // Make decisions every 0.5 seconds
+            decision_timer: Timer::from_seconds(0.5, TimerMode::Repeating),
             current_target: Vec2::ZERO,
             behavior_state: AiBehavior::ChaseBall,
         }
@@ -75,13 +75,14 @@ pub struct CoyoteTime {
 impl Default for CoyoteTime {
     fn default() -> Self {
         Self {
-            timer: Timer::from_seconds(0.2, TimerMode::Once), // 100ms coyote time
+            timer: Timer::from_seconds(0.2, TimerMode::Once),
             was_grounded: false,
         }
     }
 }
 
 #[derive(Component)]
+#[allow(dead_code)] // Reserved for future player customization
 pub struct PlayerTexture(Handle<Image>);
 
 #[derive(Bundle)]

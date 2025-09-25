@@ -14,7 +14,7 @@ impl User {
     pub fn new(username: String, wallet_address: String) -> Self {
         let now = Utc::now();
         Self {
-            id: 0, // Will be overridden by database
+            id: 0,
             username,
             wallet_address,
             created_at: Some(now),
@@ -50,7 +50,7 @@ impl GameInstance {
         game_mode: String,
     ) -> Self {
         Self {
-            id: 0, // Will be set by database
+            id: 0,
             user_id,
             game_session_id,
             player_username,
@@ -63,4 +63,24 @@ impl GameInstance {
             created_at: Some(Utc::now()),
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlayerStats {
+    pub wins: u32,
+    pub losses: u32,
+    pub draws: u32,
+    pub total_games: u32,
+    pub avg_duration: f32,
+    pub avg_score: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LeaderboardEntry {
+    pub username: String,
+    pub wallet_address: String,
+    pub wins: u32,
+    pub losses: u32,
+    pub draws: u32,
+    pub total_games: u32,
 }
