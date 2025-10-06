@@ -1,8 +1,6 @@
-pub mod api;
-pub mod freighter;
-pub mod homepage;
-pub mod loginpage;
-pub mod gamepage;
-pub mod navbar;
-pub mod routes;
-pub mod soroban;
+// Re-export main modules for use as a library
+pub mod components;
+pub mod pages;
+pub mod routing;
+pub mod services;
+pub mod wallet;

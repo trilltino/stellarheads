@@ -3,8 +3,8 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use serde_json::json;
 use thiserror::Error;
+use shared::dto::common::ApiResponse;
 
 #[derive(Error, Debug)]
 pub enum AppError {
@@ -17,8 +17,6 @@ pub enum AppError {
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
 
-    #[error("HTTP client error: {0}")]
-    HttpClient(#[from] reqwest::Error),
 
     #[error("User not found")]
     UserNotFound,
@@ -31,25 +29,57 @@ pub enum AppError {
 
     #[error("Internal server error: {0}")]
     Internal(String),
+
+    #[error("Configuration error: {0}")]
+    Config(String),
+
+    #[error("Stellar RPC error: {0}")]
+    StellarRpc(String),
+
+    #[error("Account error: {0}")]
+    Account(String),
+
+    #[error("Transaction error: {0}")]
+    Transaction(String),
+
+    #[error("XDR encoding error: {0}")]
+    XdrEncoding(String),
+
+    #[error("XDR decoding error: {0}")]
+    XdrDecoding(String),
+
+    #[error("Task execution error: {0}")]
+    TaskExecution(String),
 }
 
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
-        let (status, error_message) = match self {
-            AppError::Database(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Database error occurred"),
-            AppError::UserNotFound => (StatusCode::NOT_FOUND, "User not found"),
-            AppError::InvalidInput(_) => (StatusCode::BAD_REQUEST, "Invalid input provided"),
-            AppError::ExternalService(_) => (StatusCode::SERVICE_UNAVAILABLE, "External service unavailable"),
-            AppError::EnvVar(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Configuration error"),
-            AppError::Serialization(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Data processing error"),
-            AppError::HttpClient(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Network error"),
-            AppError::Internal(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error"),
+        let status = match self {
+            AppError::Database(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            AppError::UserNotFound => StatusCode::NOT_FOUND,
+            AppError::InvalidInput(_) => StatusCode::BAD_REQUEST,
+            AppError::ExternalService(_) => StatusCode::SERVICE_UNAVAILABLE,
+            AppError::EnvVar(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            AppError::Serialization(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            AppError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            AppError::Config(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            AppError::StellarRpc(_) => StatusCode::SERVICE_UNAVAILABLE,
+            AppError::Account(_) => StatusCode::BAD_REQUEST,
+            AppError::Transaction(_) => StatusCode::BAD_REQUEST,
+            AppError::XdrEncoding(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            AppError::XdrDecoding(_) => StatusCode::BAD_REQUEST,
+            AppError::TaskExecution(_) => StatusCode::INTERNAL_SERVER_ERROR,
         };
 
-        let body = Json(json!({
-            "error": error_message,
-            "message": self.to_string()
-        }));
+        // Create a consistent error response using the ApiResponse format
+        let detailed_message = match &self {
+            AppError::InvalidInput(msg) => format!("Invalid input: {msg}"),
+            AppError::ExternalService(msg) => format!("External service error: {msg}"),
+            AppError::Internal(msg) => format!("Internal error: {msg}"),
+            _ => self.to_string(),
+        };
+
+        let body = Json(ApiResponse::<()>::error(detailed_message));
 
         (status, body).into_response()
     }

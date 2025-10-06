@@ -1,16 +1,33 @@
 use axum::{
+    http::{StatusCode, Uri},
+    response::Response,
     routing::{get, post},
     Router,
-    response::Response,
-    http::{StatusCode, Uri},
 };
 use tower_http::{cors::CorsLayer, services::ServeDir};
-use std::net::SocketAddr;
-use tracing::{info, error};
+use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+use backend::{
+    config::Config,
+    database::create_pool,
+    handlers::{
+        auth::register_guest,
+        game_results::{
+            get_database_leaderboard, get_player_games, get_player_stats, get_recent_games,
+            store_game_result,
+        },
+        contract::{
+            generate_contract_xdr_handler, submit_contract_transaction_handler,
+            get_leaderboard_handler, contract_health_handler, check_join_status_handler,
+        },
+        health,
+    },
+};
+
 async fn spa_fallback(_uri: Uri) -> Result<Response, StatusCode> {
-    match tokio::fs::read_to_string(FALLBACK_INDEX_PATH).await {
+    let config = Config::from_env().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    match tokio::fs::read_to_string(&config.fallback_index_path).await {
         Ok(content) => Ok(Response::builder()
             .status(StatusCode::OK)
             .header("content-type", "text/html")
@@ -22,32 +39,6 @@ async fn spa_fallback(_uri: Uri) -> Result<Response, StatusCode> {
         }
     }
 }
-
-use backend::database::connection::create_pool;
-
-const SERVER_ADDR: ([u8; 4], u16) = ([127, 0, 0, 1], 3000);
-const FRONTEND_DIST_PATH: &str = "../yew-frontend/dist";
-const GAME_ASSETS_PATH: &str = "backend/static/game";
-const FALLBACK_INDEX_PATH: &str = "../yew-frontend/dist/index.html";
-use backend::handlers::{
-    auth::register_guest,
-    leaderboard::{
-        join_leaderboard,
-        record_game_result,
-        submit_signed_transaction as submit_leaderboard_transaction,
-        get_player_stats as get_leaderboard_stats,
-        get_leaderboard,
-        check_player_joined as check_leaderboard_joined,
-        test_add_win
-    },
-    game_results::{
-        store_game_result,
-        get_player_stats as get_database_player_stats,
-        get_player_games,
-        get_database_leaderboard,
-        get_recent_games,
-    },
-};
 
 #[tokio::main]
 async fn main() {
@@ -61,7 +52,15 @@ async fn main() {
 
     dotenvy::dotenv().ok();
 
-    let pool = match create_pool().await {
+    let config = match Config::from_env() {
+        Ok(config) => config,
+        Err(e) => {
+            error!("Failed to load configuration: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    let pool = match create_pool(&config).await {
         Ok(pool) => {
             info!("Database connection established");
             pool
@@ -73,28 +72,16 @@ async fn main() {
         }
     };
 
-    let app = Router::new()
-        .route("/api/auth/register-guest", post(register_guest))
-        .route("/api/leaderboard/join", post(join_leaderboard))
-        .route("/api/leaderboard/record", post(record_game_result))
-        .route("/api/leaderboard/submit", post(submit_leaderboard_transaction))
-        .route("/api/leaderboard/stats", get(get_leaderboard_stats))
-        .route("/api/leaderboard", get(get_leaderboard))
-        .route("/api/leaderboard/check", get(check_leaderboard_joined))
-        .route("/api/leaderboard/test-add-win", get(test_add_win))
-        .route("/api/games/store", post(store_game_result))
-        .route("/api/games/player-stats", get(get_database_player_stats))
-        .route("/api/games/player-games", get(get_player_games))
-        .route("/api/games/leaderboard", get(get_database_leaderboard))
-        .route("/api/games/recent", get(get_recent_games))
+    let routes = create_routes(&config).with_state(pool);
+    let app = routes.layer(CorsLayer::permissive());
 
-        .nest_service("/game", ServeDir::new(GAME_ASSETS_PATH))
-        .nest_service("/static", ServeDir::new(FRONTEND_DIST_PATH))
-        .fallback(spa_fallback)
-        .with_state(pool)
-        .layer(CorsLayer::permissive());
-
-    let addr = SocketAddr::from(SERVER_ADDR);
+    let addr = match config.socket_addr() {
+        Ok(addr) => addr,
+        Err(e) => {
+            error!("Failed to parse socket address: {}", e);
+            std::process::exit(1);
+        }
+    };
     info!("Backend server running on http://{}", addr);
 
     let listener = match tokio::net::TcpListener::bind(addr).await {
@@ -109,4 +96,29 @@ async fn main() {
         error!("Server failed to start: {}", e);
         std::process::exit(1);
     }
+}
+
+fn create_routes(config: &Config) -> Router<sqlx::PgPool> {
+    Router::new()
+        // Health check
+        .route("/health", get(health))
+        // Authentication routes
+        .route("/api/auth/register-guest", post(register_guest))
+        // Game routes
+        .route("/api/games/store", post(store_game_result))
+        .route("/api/games/player-stats", get(get_player_stats))
+        .route("/api/games/player-games", get(get_player_games))
+        .route("/api/games/leaderboard", get(get_database_leaderboard))
+        .route("/api/games/recent", get(get_recent_games))
+        // Contract routes
+        .route("/api/contract/generate-xdr", post(generate_contract_xdr_handler))
+        .route("/api/contract/submit-transaction", post(submit_contract_transaction_handler))
+        .route("/api/contract/join-status", get(check_join_status_handler))
+        .route("/api/leaderboard", get(get_leaderboard_handler))
+        .route("/api/contract/health", get(contract_health_handler))
+        // Static file serving
+        .nest_service("/game", ServeDir::new(&config.game_assets_path))
+        .nest_service("/static", ServeDir::new(&config.frontend_dist_path))
+        // SPA fallback for frontend routing
+        .fallback(spa_fallback)
 }

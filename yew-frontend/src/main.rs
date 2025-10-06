@@ -1,18 +1,14 @@
-use yew::Renderer;
-
-mod api;
-mod freighter;
-mod homepage;
-mod loginpage;
-mod gamepage;
-mod navbar;
-mod routes;
-mod soroban;
-
-
-use routes::{Route, switch};
 use yew::prelude::*;
+use yew::Renderer;
 use yew_router::prelude::*;
+
+mod components;
+mod pages;
+mod routing;
+mod services;
+mod wallet;
+
+use routing::{Route, switch};
 
 #[function_component(App)]
 fn app() -> Html {

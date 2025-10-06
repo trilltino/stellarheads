@@ -5,17 +5,12 @@ use chrono::{DateTime, Utc};
 pub struct GameResult {
     pub player_username: String,
     pub player_wallet_address: String,
-
     pub player_result: MatchResult,
-
     pub player_score: u32,
     pub opponent_score: u32,
-
     pub game_session_id: String,
     pub game_mode: String,
-
     pub duration_seconds: f32,
-
     pub timestamp: DateTime<Utc>,
 }
 
@@ -71,8 +66,77 @@ impl GameResult {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct GameResultResponse {
-    pub success: bool,
-    pub message: String,
+// API Request/Response DTOs
+#[derive(Debug, Deserialize)]
+pub struct StoreGameResultRequest {
+    pub game_session_id: String,
+    pub player_username: String,
+    pub player_wallet_address: String,
+    pub player_result: String,
+    pub player_score: i32,
+    pub opponent_score: i32,
+    pub duration_seconds: f32,
+    pub game_mode: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct StoreGameResultResponse {
+    pub game_id: i32,
+    pub contract_xdr: Option<ContractXdrInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContractXdrInfo {
+    pub xdr: String,
+    pub function_name: String,
+    pub description: String,
+    pub network_passphrase: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PlayerStatsQuery {
+    pub wallet_address: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PlayerStats {
+    pub total_games: i64,
+    pub wins: i64,
+    pub losses: i64,
+    pub draws: i64,
+    pub win_rate: f64,
+    pub average_score: f64,
+    pub best_score: i32,
+    pub total_playtime_seconds: f64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PlayerGamesQuery {
+    pub wallet_address: String,
+    pub limit: Option<i64>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct GameInstance {
+    pub id: i32,
+    pub game_session_id: String,
+    pub player_username: String,
+    pub player_wallet_address: String,
+    pub player_result: String,
+    pub player_score: i32,
+    pub opponent_score: i32,
+    pub duration_seconds: f32,
+    pub game_mode: String,
+    pub created_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct LeaderboardEntry {
+    pub rank: i64,
+    pub username: String,
+    pub wallet_address: String,
+    pub wins: i64,
+    pub total_games: i64,
+    pub win_rate: f64,
+    pub best_score: i32,
 }

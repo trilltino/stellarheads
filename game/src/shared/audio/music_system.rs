@@ -1,5 +1,6 @@
 use bevy::prelude::*;
-use bevy::audio::{AudioPlayer, AudioSource, PlaybackSettings};
+use bevy::audio::{AudioPlayer, AudioSource, PlaybackSettings, Volume};
+use bevy::ecs::schedule::common_conditions::resource_exists;
 use crate::shared::AppState;
 
 // ================= Audio Resources =================
@@ -116,16 +117,72 @@ pub fn ensure_menu_music_playing(
     }
 }
 
+pub fn start_game_music(
+    mut commands: Commands,
+    game_audio: Res<GameAudio>,
+    mut music_state: ResMut<MusicState>,
+    existing_music: Query<Entity, With<PlayingMusic>>,
+) {
+    // Don't start music if already playing
+    if !existing_music.is_empty() {
+        #[cfg(target_arch = "wasm32")]
+        web_sys::console::log_1(&"🎵 Music already playing, skipping".into());
+        return;
+    }
+
+    // Start first game track
+    let first_track = game_audio.get_track(0);
+
+    #[cfg(target_arch = "wasm32")]
+    web_sys::console::log_1(&format!("🎵 Starting game music track 0: {:?}", first_track).into());
+
+    let music_entity = commands.spawn((
+        PlayingMusic,
+        CurrentTrack(0),
+        AudioPlayer(first_track.clone()),
+        PlaybackSettings::LOOP.with_volume(Volume::Linear(0.5)),  // Set volume to 50%
+    )).id();
+
+    music_state.current_track = 0;
+    music_state.current_entity = Some(music_entity);
+
+    #[cfg(target_arch = "wasm32")]
+    web_sys::console::log_1(&"🎵 Game music entity spawned successfully".into());
+
+    #[cfg(not(target_arch = "wasm32"))]
+    println!("🎵 Started game music track 0");
+}
+
 pub fn play_kick_sound(
     mut commands: Commands,
     mut kick_events: EventReader<PlayKickSoundEvent>,
     game_audio: Res<GameAudio>,
+    _music_state: ResMut<MusicState>,
+    _existing_music: Query<Entity, With<PlayingMusic>>,
 ) {
     for _event in kick_events.read() {
+        // Play kick sound
         commands.spawn((
             AudioPlayer(game_audio.kick_sound.clone()),
             PlaybackSettings::ONCE,
         ));
+
+        // Also start music if not playing (on first kick - ensures user interaction)
+        #[cfg(target_arch = "wasm32")]
+        if existing_music.is_empty() && music_state.current_entity.is_none() {
+            web_sys::console::log_1(&"🎵 Starting music on first kick (user interaction)".into());
+
+            let first_track = game_audio.get_track(0);
+            let music_entity = commands.spawn((
+                PlayingMusic,
+                CurrentTrack(0),
+                AudioPlayer(first_track),
+                PlaybackSettings::LOOP.with_volume(Volume::Linear(0.3)),  // Lower volume for background music
+            )).id();
+
+            music_state.current_track = 0;
+            music_state.current_entity = Some(music_entity);
+        }
     }
 }
 
@@ -158,6 +215,37 @@ pub fn play_end_game_sound(
 #[derive(Default)]
 pub struct GameAudioPlugin;
 
+pub fn ensure_music_on_input(
+    mut commands: Commands,
+    game_audio: Res<GameAudio>,
+    mut music_state: ResMut<MusicState>,
+    existing_music: Query<Entity, With<PlayingMusic>>,
+    keyboard: Res<ButtonInput<KeyCode>>,
+    app_state: Res<State<AppState>>,
+) {
+    // Only check in game state
+    if *app_state.get() != AppState::InGame {
+        return;
+    }
+
+    // If any key is pressed and music isn't playing, start it
+    if keyboard.get_just_pressed().next().is_some() && existing_music.is_empty() {
+        #[cfg(target_arch = "wasm32")]
+        web_sys::console::log_1(&"🎵 Starting music on keyboard input".into());
+
+        let first_track = game_audio.get_track(0);
+        let music_entity = commands.spawn((
+            PlayingMusic,
+            CurrentTrack(0),
+            AudioPlayer(first_track),
+            PlaybackSettings::LOOP.with_volume(Volume::Linear(0.3)),
+        )).id();
+
+        music_state.current_track = 0;
+        music_state.current_entity = Some(music_entity);
+    }
+}
+
 impl Plugin for GameAudioPlugin {
     fn build(&self, app: &mut App) {
         app
@@ -165,8 +253,12 @@ impl Plugin for GameAudioPlugin {
             .add_event::<PlayStartGameSound>()
             .add_event::<PlayEndGameSound>()
             .add_systems(
-                Startup,
+                PreStartup,  // Changed from Startup to PreStartup to run earlier
                 setup_audio_system,
+            )
+            .add_systems(
+                OnEnter(AppState::InGame),
+                start_game_music.run_if(resource_exists::<GameAudio>),  // Only run if resource exists
             )
             .add_systems(
                 Update,
@@ -176,6 +268,7 @@ impl Plugin for GameAudioPlugin {
                     play_start_game_sound,
                     play_end_game_sound,
                     ensure_menu_music_playing,
+                    ensure_music_on_input,  // Start music on any keyboard input
                 ),
             );
     }

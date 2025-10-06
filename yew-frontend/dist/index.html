@@ -17,14 +17,18 @@
     <!-- Stellar Freighter API -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/stellar-freighter-api/4.1.0/index.min.js"></script>
 
-    <!-- Include our CSS file -->
+
+
+
+    <!-- Include our CSS files -->
     <link rel="stylesheet" href="/styles-909d376761d4b004.css" integrity="sha384-ezYjItujVAFjqArxb5w1sCBtOJh9nsYGQzOqcH8jIk/t3PJYT0u48CYVtORKvtSp"/>
+    <link rel="stylesheet" href="/login-49cc3e8528a341ee.css" integrity="sha384-kk42ti5WlFnOyLh2hno3wUxrFTBqOqZke/XExP8CjqFRDd6rOPA8Zh2/5hl6cQnf"/>
 
     <!-- Include Rust WASM -->
     
 <script type="module">
-import init, * as bindings from '/yew-scaffold-9ba6873b5bb27a72.js';
-const wasm = await init({ module_or_path: '/yew-scaffold-9ba6873b5bb27a72_bg.wasm' });
+import init, * as bindings from '/yew-scaffold-b8339d54d7b0e95e.js';
+const wasm = await init({ module_or_path: '/yew-scaffold-b8339d54d7b0e95e_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -33,19 +37,24 @@ window.wasmBindings = bindings;
 dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
 
 </script>
-<link rel="modulepreload" href="/yew-scaffold-9ba6873b5bb27a72.js" crossorigin="anonymous" integrity="sha384-1K7iz/gh2zvldvNIA8RPIdR4D0P/V9Mwb8m8OEg2UjiGzJraTzir1LhrC2LbmGYU"><link rel="preload" href="/yew-scaffold-9ba6873b5bb27a72_bg.wasm" crossorigin="anonymous" integrity="sha384-Dzg61n+2M3SB1siGfdb00Yv7vgS6xMfqmYmdzfM1whpjFJGihpW2WjBaM+ShuOdo" as="fetch" type="application/wasm"></head>
+<link rel="modulepreload" href="/yew-scaffold-b8339d54d7b0e95e.js" crossorigin="anonymous" integrity="sha384-b/2QUCeC1RByPtDrJsapkmq1zFsZLET1M4MgjQcuqb5WRUanQixICcH+3J7C2EEM"><link rel="preload" href="/yew-scaffold-b8339d54d7b0e95e_bg.wasm" crossorigin="anonymous" integrity="sha384-zl475nGWRP+6CEmT3fID6WUab6Y5gkqZTs6bMKm2PccvXXW680RooC3mR62aXDaR" as="fetch" type="application/wasm"></head>
 
 
 <body>
     <script type="module">
         window.addEventListener('load', async () => {
             setTimeout(() => {
+                // Check Freighter
                 if (window.freighterApi) {
                     console.log('✅ Freighter API detected', Object.keys(window.freighterApi));
                 } else {
                     console.log('⚠️ Freighter API not detected - extension may not be installed');
                 }
+
+
+
             }, 1000);
+
         });
     </script>
 <script>"use strict";

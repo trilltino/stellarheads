@@ -1,27 +1,30 @@
 use super::collision::CollisionLayers;
-use crate::shared::AppState;
+use crate::shared::{AppState, config::{GamePhysics, GameLayout}};
 
 use avian2d::prelude::*;
 use bevy::prelude::*;
+
+#[cfg(not(target_arch = "wasm32"))]
 use bevy_inspector_egui::prelude::*;
 
-
-#[derive(Component, Reflect, InspectorOptions)]
-#[reflect(Component, InspectorOptions)]
+#[derive(Component, Reflect)]
+#[reflect(Component)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(InspectorOptions))]
+#[cfg_attr(not(target_arch = "wasm32"), reflect(InspectorOptions))]
 pub struct Ball {
-    #[inspector(min = 0.0, max = 2.0, speed = 0.1)]
+    #[cfg_attr(not(target_arch = "wasm32"), inspector(min = 0.0, max = 2.0, speed = 0.1))]
     pub bounce_multiplier: f32,
-    #[inspector(min = 0.0, max = 1000.0)]
+    #[cfg_attr(not(target_arch = "wasm32"), inspector(min = 0.0, max = 1000.0))]
     pub max_speed: f32,
-    #[inspector(min = 0.0, max = 50.0)]
+    #[cfg_attr(not(target_arch = "wasm32"), inspector(min = 0.0, max = 50.0))]
     pub mass: f32,
-    #[inspector(min = 0.0, max = 20.0)]
+    #[cfg_attr(not(target_arch = "wasm32"), inspector(min = 0.0, max = 20.0))]
     pub gravity_scale: f32,
-    #[inspector(min = 0.0, max = 1.0, speed = 0.01)]
+    #[cfg_attr(not(target_arch = "wasm32"), inspector(min = 0.0, max = 1.0, speed = 0.01))]
     pub restitution: f32,
-    #[inspector(min = 0.0, max = 1.0, speed = 0.01)]
+    #[cfg_attr(not(target_arch = "wasm32"), inspector(min = 0.0, max = 1.0, speed = 0.01))]
     pub friction: f32,
-    #[inspector(min = 10.0, max = 100.0)]
+    #[cfg_attr(not(target_arch = "wasm32"), inspector(min = 10.0, max = 100.0))]
     pub radius: f32,
 }
 
@@ -43,23 +46,24 @@ pub struct BallBundle {
 
 impl BallBundle {
     pub fn new(
-        radius: f32,
         position: Vec3,
         ball_texture: Handle<Image>,
+        physics: &GamePhysics,
+        layout: &GameLayout,
     ) -> Self {
         Self {
             sprite: Sprite {
                 image: ball_texture,
-                custom_size: Some(Vec2::new(radius * 2.0, radius * 2.0)),
+                custom_size: Some(Vec2::new(layout.ball_visual_size, layout.ball_visual_size)),
                 ..default()
             },
             transform: Transform::from_translation(position),
             rigid_body: RigidBody::Dynamic,
-            collider: Collider::circle(radius),
-            restitution: Restitution::new(0.8), // Less bouncy for better control
-            friction: Friction::new(0.1),       // Slightly more friction
-            mass: Mass(2.0),                    // Much lighter for responsiveness
-            gravity_scale: GravityScale(12.0),   // Stronger gravity to keep it grounded
+            collider: Collider::circle(layout.ball_physics_radius),
+            restitution: Restitution::new(physics.ball_restitution),
+            friction: Friction::new(physics.ball_friction),
+            mass: Mass(physics.ball_mass),
+            gravity_scale: GravityScale(physics.ball_gravity_scale),
             velocity: LinearVelocity::ZERO,
             collider_density: ColliderDensity(1.0),
             layers: avian2d::prelude::CollisionLayers::new(
@@ -67,13 +71,13 @@ impl BallBundle {
                 CollisionLayers::GOAL | CollisionLayers::PLAYER | CollisionLayers::GROUND
             ),
             ball: Ball {
-                bounce_multiplier: 0.8,
-                max_speed: 400.0,              // Faster max speed
-                mass: 2.0,
-                gravity_scale: 12.0,
-                restitution: 0.8,
-                friction: 0.05,
-                radius,
+                bounce_multiplier: physics.ball_bounce_multiplier,
+                max_speed: physics.ball_max_speed,
+                mass: physics.ball_mass,
+                gravity_scale: physics.ball_gravity_scale,
+                restitution: physics.ball_restitution,
+                friction: physics.ball_friction,
+                radius: layout.ball_physics_radius,
             },
         }
     }
@@ -85,34 +89,44 @@ fn cleanup_balls(
 ) {
     for entity in ball_query.iter() {
         commands.entity(entity).despawn();
-        println!("🗑️ Despawned ball entity: {:?}", entity);
+        #[cfg(not(target_arch = "wasm32"))]
+        println!("🗑️ Despawned ball entity: {entity:?}");
     }
+    #[cfg(not(target_arch = "wasm32"))]
     println!("🧹 All balls cleaned up for new game");
 }
 
 pub fn spawn_ball(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    physics: Res<GamePhysics>,
+    layout: Res<GameLayout>,
 ) {
-    let ball_radius = 24.0; // Increased size for better visibility and gameplay
-    let spawn_height = 100.0; // Lower spawn height to prevent falling through
-
     let ball_texture = asset_server.load("ball/ball.png");
+    let spawn_position = layout.ball_spawn();
 
     let ball_entity = commands.spawn((
         BallBundle::new(
-            ball_radius,
-            Vec3::new(0.0, spawn_height, 0.0), // Center field, safer height
+            spawn_position,
             ball_texture,
+            &physics,
+            &layout,
         ),
         Name::new("Soccer Ball"),
     )).id();
 
-    println!("⚽ BALL SPAWNED: Entity {:?} at center field, height {} with radius {}",
-             ball_entity, spawn_height, ball_radius);
+    #[cfg(not(target_arch = "wasm32"))]
+    println!(
+        "⚽ BALL SPAWNED: Entity {:?} at {:?} with radius {}",
+        ball_entity, spawn_position, layout.ball_physics_radius
+    );
+    #[cfg(not(target_arch = "wasm32"))]
     println!("   Using ball.png texture with proper scaling");
-    println!("   Collision layers: BALL={} (collides with GOAL={}, PLAYER={}, GROUND={})",
-             CollisionLayers::BALL, CollisionLayers::GOAL, CollisionLayers::PLAYER, CollisionLayers::GROUND);
+    #[cfg(not(target_arch = "wasm32"))]
+    println!(
+        "   Collision layers: BALL={} (collides with GOAL={}, PLAYER={}, GROUND={})",
+        CollisionLayers::BALL, CollisionLayers::GOAL, CollisionLayers::PLAYER, CollisionLayers::GROUND
+    );
 }
 
 

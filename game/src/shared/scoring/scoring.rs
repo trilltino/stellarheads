@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use crate::shared::AppState;
+use crate::shared::{AppState, config::ScoringConfig};
 use shared::dto::game::{GameResult, MatchResult};
 
 // ================= HTTP Client for Direct Communication =================
@@ -14,9 +14,15 @@ pub struct PlayerInfo {
 
 // ================= Game Session Tracking =================
 
-#[derive(Resource)]
+gtgg#[derive(Resource)]
 pub struct GameSession {
     pub session_id: String,
+}
+
+impl Default for GameSession {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl GameSession {
@@ -38,7 +44,6 @@ pub struct Score {
 }
 
 impl Score {
-
     pub fn add_point(&mut self, team: GoalTeam) {
         match team {
             GoalTeam::Left => self.left_team += 1,
@@ -55,18 +60,19 @@ impl Score {
         self.right_team = 0;
     }
 
-    pub fn get_winner(&self) -> Option<GoalTeam> {
-        if self.left_team >= 5 {
+    pub fn get_winner(&self, winning_score: i32) -> Option<GoalTeam> {
+        if self.left_team >= winning_score as u32 {
             Some(GoalTeam::Left)
-        } else if self.right_team >= 5 {
+        } else if self.right_team >= winning_score as u32 {
             Some(GoalTeam::Right)
         } else {
             None
         }
     }
 
-    pub fn is_match_point(&self) -> bool {
-        self.left_team >= 4 || self.right_team >= 4
+    pub fn is_match_point(&self, winning_score: i32) -> bool {
+        let match_point = (winning_score - 1) as u32;
+        self.left_team >= match_point || self.right_team >= match_point
     }
 }
 
@@ -79,13 +85,19 @@ pub struct GameTimer {
     pub is_finished: bool,
 }
 
-impl Default for GameTimer {
-    fn default() -> Self {
+impl GameTimer {
+    pub fn new(duration: f32) -> Self {
         Self {
-            remaining_time: 120.0, // 2 minutes
-            match_duration: 120.0,
+            remaining_time: duration,
+            match_duration: duration,
             is_finished: false,
         }
+    }
+}
+
+impl Default for GameTimer {
+    fn default() -> Self {
+        Self::new(120.0) // Fallback to 2 minutes
     }
 }
 
@@ -140,20 +152,28 @@ pub enum GoalTeam {
 // ================= Scoring Systems =================
 
 pub fn handle_goal_scored(
+    scoring_config: Res<ScoringConfig>,
     mut score: ResMut<Score>,
     mut goal_events: EventReader<GoalScored>,
     mut notifications: ResMut<ScoreNotifications>,
     mut reset_events: EventWriter<PlayerReset>,
     mut match_events: EventWriter<MatchFinished>,
 ) {
-    let event_count = goal_events.len();
-    if event_count > 0 {
-        println!("🎯 SCORING SYSTEM: Received {} GoalScored events!", event_count);
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let event_count = goal_events.len();
+        if event_count > 0 {
+            println!("🎯 SCORING SYSTEM: Received {event_count} GoalScored events!");
+        }
     }
 
     for event in goal_events.read() {
+        #[cfg(not(target_arch = "wasm32"))]
         println!("🎯 PROCESSING GoalScored event for {:?} team at {:?}", event.scoring_team, event.goal_position);
+
         score.add_point(event.scoring_team.clone());
+
+        #[cfg(not(target_arch = "wasm32"))]
         println!("🎯 ⚽ GOAL SCORED by {:?}! NEW SCORE: {} - {}", event.scoring_team, score.left_team, score.right_team);
 
         // Add floating notification
@@ -163,17 +183,17 @@ pub fn handle_goal_scored(
         };
         notifications
             .notifications
-            .push(ScoreNotification::new(format!("⚽ {} GOAL!", team_name), 2.0));
+            .push(ScoreNotification::new(format!("⚽ {team_name} GOAL!"), 2.0));
 
         // Check for match point
-        if score.is_match_point() {
+        if score.is_match_point(scoring_config.winning_score) {
             notifications
                 .notifications
                 .push(ScoreNotification::new("🔥 MATCH POINT!".to_string(), 2.0));
         }
 
         // Check for match winner
-        if let Some(winner) = score.get_winner() {
+        if let Some(winner) = score.get_winner(scoring_config.winning_score) {
             match_events.write(MatchFinished { winner: Some(winner) });
             return;
         }
@@ -186,21 +206,26 @@ pub fn handle_goal_scored(
 pub fn reset_score_system(
     mut score: ResMut<Score>,
     mut timer: ResMut<GameTimer>,
-    keyboard: Res<ButtonInput<KeyCode>>,
+    keyboard: Option<Res<ButtonInput<KeyCode>>>,
     mut notifications: ResMut<ScoreNotifications>,
     mut reset_events: EventWriter<PlayerReset>,
 ) {
-    if keyboard.just_pressed(KeyCode::KeyR) {
-        if score.left_team > 0 || score.right_team > 0 {
-            notifications
-                .notifications
-                .push(ScoreNotification::new("🔄 MATCH RESET".to_string(), 2.0));
+    // Only check keyboard input if the resource is available (not in headless tests)
+    if let Some(keyboard) = keyboard {
+        if keyboard.just_pressed(KeyCode::KeyR) {
+            if score.left_team > 0 || score.right_team > 0 {
+                notifications
+                    .notifications
+                    .push(ScoreNotification::new("🔄 MATCH RESET".to_string(), 2.0));
+            }
+            score.reset();
+            timer.remaining_time = timer.match_duration;
+            timer.is_finished = false;
+            reset_events.write(PlayerReset);
+
+            #[cfg(not(target_arch = "wasm32"))]
+            println!("Match reset!");
         }
-        score.reset();
-        timer.remaining_time = timer.match_duration;
-        timer.is_finished = false;
-        reset_events.write(PlayerReset);
-        println!("Match reset!");
     }
 }
 
@@ -262,6 +287,8 @@ pub fn handle_match_finished(
 
         // Transition to GameOver state after a short delay for notifications
         next_state.set(AppState::GameOver);
+
+        #[cfg(not(target_arch = "wasm32"))]
         println!("🏁 Match finished, transitioning to GameOver state");
     }
 }
@@ -307,7 +334,7 @@ pub fn send_game_result_system(
         ).with_game_mode("single_player_vs_ai".to_string());
 
         // Send game result directly to backend via HTTP
-        println!("🎮 Sending game result to backend: {:?}", game_result);
+        println!("🎮 Sending game result to backend: {game_result:?}");
 
         // Spawn task to submit game result
         let game_result_clone = game_result.clone();
@@ -323,7 +350,7 @@ pub fn send_game_result_system(
         #[cfg(not(target_arch = "wasm32"))]
         {
             // For native builds, just log (could add file logging here)
-            println!("Game result: {:?}", game_result_clone);
+            println!("Game result: {game_result_clone:?}");
         }
     }
 }
@@ -340,10 +367,20 @@ pub fn setup_player_info(mut player_info: ResMut<PlayerInfo>) {
 }
 
 /// System that runs when entering InGame state - creates a new game session
-pub fn create_game_session(mut commands: Commands) {
+pub fn create_game_session(
+    mut commands: Commands,
+    scoring_config: Res<ScoringConfig>,
+) {
     let session = GameSession::new();
+
+    #[cfg(not(target_arch = "wasm32"))]
     println!("🎲 New game session created: {}", session.session_id);
+
     commands.insert_resource(session);
+
+    // Initialize timer with configured duration
+    let timer = GameTimer::new(scoring_config.match_duration_seconds);
+    commands.insert_resource(timer);
 }
 
 // ================= Scoring Plugin =================

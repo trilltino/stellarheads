@@ -1,15 +1,20 @@
 use avian2d::prelude::*;
 use bevy::prelude::*;
+use bevy::audio::AudioSource;
 use wasm_bindgen::prelude::*;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-mod shared;
+pub mod shared;
 mod rendering;
 
-use shared::gameplay::{Ball, BallPlugin, CollisionPlugin, GoalPlugin, GroundPlugin, Player, AiPlayer, LocalPlayer, Speed, JumpForce, IsGrounded, CoyoteTime, PlayerPlugin};
+use shared::config::{GameConfigPlugin, CameraConfig, BackgroundConfig};
+use shared::gameplay::{
+    Ball, BallPlugin, CollisionPlugin, GoalPlugin, GroundPlugin, Player, AiPlayer, LocalPlayer,
+    Speed, JumpForce, IsGrounded, CoyoteTime, PlayerPlugin
+};
 use shared::scoring::ScoringPlugin;
 use shared::audio::music_system::GameAudioPlugin;
-use shared::{AppState, StateUIPlugin, UIPlugin};
+use shared::{AppState, UIPlugin};
 
 pub const FIXED_TIMESTEP_HZ: f64 = 60.0;
 
@@ -32,54 +37,55 @@ pub fn main_js() {
 }
 
 pub fn run_game() {
+    create_app().run();
+}
 
-    #[cfg(target_arch = "wasm32")]
-    let default_plugins = DefaultPlugins
-        .set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Stellar Heads".into(),
-                resolution: (1366.0, 768.0).into(),
-                canvas: Some("#stellar-heads-canvas".to_owned()),
-                fit_canvas_to_parent: true,
-                prevent_default_event_handling: false,
-                resizable: false,
-                ..default()
-            }),
-            ..default()
-        })
-;
-
-    #[cfg(not(target_arch = "wasm32"))]
-    let default_plugins = DefaultPlugins.set(WindowPlugin {
-        primary_window: Some(Window {
-            canvas: Some("#stellar-heads-canvas".to_owned()),
-            fit_canvas_to_parent: true,
-            prevent_default_event_handling: false,
-            ..default()
-        }),
-        ..default()
-    });
-
+pub fn create_app() -> App {
     let mut app = App::new();
 
-    // Add plugins conditionally for WASM vs native
+    add_plugins(&mut app);
+    configure_app(&mut app);
+
+    app
+}
+
+fn add_plugins(app: &mut App) {
     #[cfg(target_arch = "wasm32")]
     app.add_plugins((
-        default_plugins,
+        DefaultPlugins.set(create_window_plugin()),
         PhysicsPlugins::default(),
-        // Audio disabled for WASM to avoid compatibility issues
     ));
 
     #[cfg(not(target_arch = "wasm32"))]
     app.add_plugins((
-        default_plugins,
+        DefaultPlugins.set(create_window_plugin()),
         PhysicsPlugins::default(),
         bevy_egui::EguiPlugin::default(),
     ));
+}
 
+fn create_window_plugin() -> WindowPlugin {
+    WindowPlugin {
+        primary_window: Some(Window {
+            title: "Stellar Heads".into(),
+            resolution: (1366.0, 768.0).into(),
+            #[cfg(target_arch = "wasm32")]
+            canvas: Some("#stellar-heads-canvas".into()),
+            #[cfg(target_arch = "wasm32")]
+            fit_canvas_to_parent: true,
+            #[cfg(target_arch = "wasm32")]
+            prevent_default_event_handling: false,
+            resizable: false,
+            ..default()
+        }),
+        ..default()
+    }
+}
+
+fn configure_app(app: &mut App) {
     app.insert_resource(ClearColor(Color::srgb(0.05, 0.05, 0.1)))
-        .init_asset::<bevy::audio::AudioSource>()
-        .insert_state(AppState::InGame) // Skip menu for WASM - go straight to game
+        .init_asset::<AudioSource>()
+        .insert_state(AppState::InGame)
         .register_type::<Ball>()
         .register_type::<Player>()
         .register_type::<AiPlayer>()
@@ -88,24 +94,23 @@ pub fn run_game() {
         .register_type::<JumpForce>()
         .register_type::<IsGrounded>()
         .register_type::<CoyoteTime>()
-        .add_plugins(BallPlugin)
-        .add_plugins(CollisionPlugin)
-        .add_plugins(GoalPlugin)
-        .add_plugins(GroundPlugin)
-        .add_plugins(ScoringPlugin)
-        .add_plugins(StateUIPlugin)
-        .add_plugins(UIPlugin)
-        .add_plugins(PlayerPlugin)
-        .add_plugins(GameAudioPlugin)
+        .add_plugins((
+            GameConfigPlugin,  // Add game configuration resources
+            BallPlugin,
+            CollisionPlugin,
+            GoalPlugin,
+            GroundPlugin,
+            ScoringPlugin,
+            UIPlugin,
+            PlayerPlugin,
+            GameAudioPlugin,
+        ))
         .add_systems(Startup, setup)
         .add_systems(OnEnter(AppState::InGame), setup_game_background)
         .add_systems(OnExit(AppState::InGame), cleanup_game_background);
-
-
-    app.run();
 }
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands, camera_config: Res<CameraConfig>) {
     use bevy::core_pipeline::bloom::Bloom;
 
     commands.spawn((
@@ -114,11 +119,11 @@ fn setup(mut commands: Commands) {
             hdr: true,
             ..default()
         },
-        Transform::from_scale(Vec3::splat(1.5)), // Increase scale to zoom out and fit everything in 1366x768
+        Transform::from_scale(Vec3::splat(camera_config.scale)),
         Bloom {
             prefilter: bevy::core_pipeline::bloom::BloomPrefilter {
-                threshold: 0.6,
-                threshold_softness: 0.2,
+                threshold: camera_config.bloom_threshold,
+                threshold_softness: camera_config.bloom_threshold_softness,
             },
             ..default()
         },
@@ -131,12 +136,13 @@ struct GameBackground;
 fn setup_game_background(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    bg_config: Res<BackgroundConfig>,
 ) {
-    let background_handle = asset_server.load("gamescreen/gamescreen.png");
+    let background_handle = asset_server.load(bg_config.asset_path.as_str());
 
     commands.spawn((
         Sprite::from_image(background_handle),
-        Transform::from_xyz(0.0, 0.0, -10.0).with_scale(Vec3::splat(0.67)), // Scale to match camera zoom (1/1.5 = 0.67)
+        Transform::from_xyz(0.0, 0.0, bg_config.z_depth).with_scale(Vec3::splat(bg_config.scale)),
         GameBackground,
         Name::new("Game Background"),
     ));

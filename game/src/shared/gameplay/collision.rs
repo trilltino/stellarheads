@@ -53,7 +53,7 @@ pub fn score_on_goal_collision(
     
     if collision_count > 0 {
         println!("🔍 Checking {} collision events for goal detection... (Current state: {:?})", collision_count, app_state.get());
-        println!("   Ball entities: {}, Goal entities: {}", ball_count, goal_count);
+        println!("   Ball entities: {ball_count}, Goal entities: {goal_count}");
     }
     
     // Debug state issues
@@ -61,7 +61,7 @@ pub fn score_on_goal_collision(
         static mut WARNED_MISSING_ENTITIES: bool = false;
         unsafe {
             if !WARNED_MISSING_ENTITIES {
-                println!("⚠️  MISSING ENTITIES: {} balls, {} goals - Make sure you're in InGame state!", ball_count, goal_count);
+                println!("⚠️  MISSING ENTITIES: {ball_count} balls, {goal_count} goals - Make sure you're in InGame state!");
                 WARNED_MISSING_ENTITIES = true;
             }
         }
@@ -75,7 +75,7 @@ pub fn score_on_goal_collision(
         let _name_a = "Entity A";
         let _name_b = "Entity B";
 
-        println!("🔍 COLLISION EVENT: {:?} <-> {:?}", entity_a, entity_b);
+        println!("🔍 COLLISION EVENT: {entity_a:?} <-> {entity_b:?}");
         println!("   A: ball={}, goal={}", balls.contains(entity_a), goals.contains(entity_a));
         println!("   B: ball={}, goal={}", balls.contains(entity_b), goals.contains(entity_b));
 
@@ -108,7 +108,7 @@ pub fn score_on_goal_collision(
 
             let goal_position = goal_transform.translation;
 
-            println!("📤 WRITING GoalScored event for {:?} team!", scoring_team);
+            println!("📤 WRITING GoalScored event for {scoring_team:?} team!");
             score_events.write(GoalScored {
                 goal_position,
                 scoring_team: scoring_team.clone(),
@@ -128,8 +128,7 @@ pub fn score_on_goal_collision(
             }
 
             println!(
-                "⚽ GOAL SCORED! {:?} team scored at position {:?}",
-                scoring_team, goal_position
+                "⚽ GOAL SCORED! {scoring_team:?} team scored at position {goal_position:?}"
             );
         }
     }
@@ -204,7 +203,7 @@ fn debug_collisions(
     
     
     if collision_count > 0 {
-        println!("🔔 COLLISION EVENTS: {} events detected!", collision_count);
+        println!("🔔 COLLISION EVENTS: {collision_count} events detected!");
     }
     
     for collision in collision_events.read() {
@@ -214,13 +213,13 @@ fn debug_collisions(
         let name_a = names.get(entity_a).map(|n| n.as_str()).unwrap_or("Unknown");
         let name_b = names.get(entity_b).map(|n| n.as_str()).unwrap_or("Unknown");
         
-        println!("💥 COLLISION: {} <-> {}", name_a, name_b);
+        println!("💥 COLLISION: {name_a} <-> {name_b}");
         
         let is_ball_goal = (balls.contains(entity_a) && goals.contains(entity_b)) || 
                           (balls.contains(entity_b) && goals.contains(entity_a));
         
         if is_ball_goal {
-            println!("🚨🚨🚨 BALL-GOAL COLLISION DETECTED!!! {} <-> {} 🚨🚨🚨", name_a, name_b);
+            println!("🚨🚨🚨 BALL-GOAL COLLISION DETECTED!!! {name_a} <-> {name_b} 🚨🚨🚨");
         }
     }
 }

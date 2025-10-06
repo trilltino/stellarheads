@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_egui::{egui, EguiContexts};
+#[cfg(not(target_arch = "wasm32"))]
 use crate::shared::scoring::{Score, GameTimer, ScoreNotifications, PlayerInfo};
 
 #[allow(dead_code)] // Reserved for future debugging features

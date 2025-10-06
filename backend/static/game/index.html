@@ -39,6 +39,48 @@
             z-index: 1000;
         }
 
+        #audio-prompt {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            z-index: 2000;
+            border: 2px solid #3498db;
+            display: none;
+            max-width: 250px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        #audio-prompt h2 {
+            font-size: 16px;
+            margin: 0 0 8px 0;
+        }
+
+        #audio-prompt p {
+            font-size: 12px;
+            margin: 0 0 12px 0;
+        }
+
+        #audio-prompt button {
+            padding: 8px 16px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+            width: 100%;
+        }
+
+        #audio-prompt button:hover {
+            background: #2980b9;
+        }
+
 
         .loading-spinner {
             border: 4px solid #f3f3f3;
@@ -61,12 +103,20 @@
         <div class="loading-spinner"></div>
         <div>Loading Stellar Heads...</div>
     </div>
+    <div id="audio-prompt">
+        <h2>🎵 Game Audio</h2>
+        <p>Enable music & sounds</p>
+        <button id="enable-audio-btn">🔊 Enable Audio</button>
+    </div>
     <canvas id="stellar-heads-canvas" width="1366" height="768"></canvas>
 
     <script type="module">
-        async function initGame() {
+        let gameLoaded = false;
+        let wasmModule = null;
+
+        async function loadGame() {
             try {
-                console.log('🎮 Starting Stellar Heads game...');
+                console.log('🎮 Loading Stellar Heads game...');
 
                 // Check if we have a WebGL context available
                 const canvas = document.getElementById('stellar-heads-canvas');
@@ -83,20 +133,17 @@
                 console.log('✅ WebGL context created');
 
                 // Import the WASM module
-                const { default: init, main_js } = await import('./stellar_heads_game.js');
+                wasmModule = await import('./stellar_heads_game.js');
 
                 // Initialize WASM with explicit paths
-                await init('./stellar_heads_game_bg.wasm');
+                await wasmModule.default('./stellar_heads_game_bg.wasm');
                 console.log('✅ WASM initialized');
 
-                // Hide loading screen
-                document.getElementById('loading').style.display = 'none';
+                gameLoaded = true;
 
-                // Start the game with a small delay to ensure canvas is ready
-                setTimeout(() => {
-                    main_js();
-                    console.log('✅ Game started');
-                }, 100);
+                // Hide loading screen and show audio prompt
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('audio-prompt').style.display = 'block';
 
             } catch (error) {
                 console.error('❌ Failed to load game:', error);
@@ -121,8 +168,68 @@
             }
         }
 
-        // Start the game when page loads
-        document.addEventListener('DOMContentLoaded', initGame);
+        function enableAudioAndStartGame() {
+            if (!gameLoaded || !wasmModule) {
+                console.warn('Game not loaded yet');
+                return;
+            }
+
+            try {
+                console.log('🔊 Enabling audio context...');
+
+                // Try to create and resume audio context (this needs user interaction)
+                if (window.AudioContext || window.webkitAudioContext) {
+                    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                    const audioContext = new AudioContextClass();
+
+                    if (audioContext.state === 'suspended') {
+                        audioContext.resume().then(() => {
+                            console.log('✅ Audio context resumed');
+                        }).catch(err => {
+                            console.warn('❌ Could not resume audio context:', err);
+                        });
+                    } else {
+                        console.log('✅ Audio context already active');
+                    }
+                }
+
+                // Hide audio prompt
+                document.getElementById('audio-prompt').style.display = 'none';
+
+                // Start the game with a small delay to ensure audio context is ready
+                setTimeout(() => {
+                    wasmModule.main_js();
+                    console.log('✅ Game started with audio enabled');
+
+                    // Debug: Try to play test audio after game starts
+                    setTimeout(() => {
+                        console.log('🎵 Testing audio playback...');
+                        const testAudio = new Audio('./assets/sounds/gamsong.ogg');
+                        testAudio.volume = 0.3;
+                        testAudio.loop = true;
+                        testAudio.play()
+                            .then(() => console.log('✅ Test audio playing successfully'))
+                            .catch(err => console.warn('⚠️ Test audio failed:', err));
+                    }, 1000);
+                }, 200);
+
+            } catch (error) {
+                console.error('❌ Failed to enable audio or start game:', error);
+                // Start game anyway, just without guaranteed audio
+                document.getElementById('audio-prompt').style.display = 'none';
+                wasmModule.main_js();
+                console.log('⚠️ Game started without audio guarantee');
+            }
+        }
+
+        // Set up event listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            // Load the game
+            loadGame();
+
+            // Set up audio enable button
+            document.getElementById('enable-audio-btn').addEventListener('click', enableAudioAndStartGame);
+        });
     </script>
 </body>
 </html>

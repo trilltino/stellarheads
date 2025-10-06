@@ -1,6 +1,6 @@
 use sqlx::{postgres::PgPoolOptions, PgPool};
-use std::env;
 use tracing::{info, warn};
+use crate::config::Config;
 
 pub type DbPool = PgPool;
 
@@ -22,21 +22,18 @@ fn mask_password(url: &str) -> String {
         .join("@")
 }
 
-pub async fn create_pool() -> Result<DbPool, sqlx::Error> {
+pub async fn create_pool(config: &Config) -> Result<DbPool, sqlx::Error> {
     if let Err(e) = dotenvy::from_filename("backend/.env") {
         warn!("Could not load backend/.env: {}", e);
         info!("Trying to load from current directory .env");
         dotenvy::dotenv().ok();
     }
 
-    let database_url = env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "postgresql://stellar_user:stellar_pass@localhost:5432/stellar_heads".to_string());
-
-    info!("Connecting to database: {}", mask_password(&database_url));
+    info!("Connecting to database: {}", mask_password(&config.database_url));
 
     let pool = PgPoolOptions::new()
         .max_connections(10)
-        .connect(&database_url)
+        .connect(&config.database_url)
         .await?;
 
     sqlx::migrate!("./migrations")
@@ -45,4 +42,10 @@ pub async fn create_pool() -> Result<DbPool, sqlx::Error> {
 
     info!("Database connected and migrations run successfully");
     Ok(pool)
+}
+
+pub async fn create_pool_with_default_config() -> Result<DbPool, sqlx::Error> {
+    let config = Config::from_env()
+        .map_err(|_| sqlx::Error::Configuration("Failed to load configuration".into()))?;
+    create_pool(&config).await
 }

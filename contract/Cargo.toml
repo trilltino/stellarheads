@@ -1,0 +1,17 @@
+[package]
+name = "stellar-heads-leaderboard"
+version = "0.1.0"
+edition = "2021"
+description = "Stellar Heads Leaderboard Smart Contract"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+soroban-sdk = "22.0.1"
+
+[dev-dependencies]
+soroban-sdk = { version = "22.0.1", features = ["testutils"] }
+
+[features]
+testutils = ["soroban-sdk/testutils"]
